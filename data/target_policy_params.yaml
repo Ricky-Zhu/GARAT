@@ -1,0 +1,572 @@
+# Stable baselines algorithm parameters
+
+PPO2:
+  Default:
+    n_steps : 128
+    nminibatches : 32
+    lam: 0.95
+    gamma: 0.99
+    ent_coef: 0.01
+    noptepochs: 4
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  Ant-v2:
+    n_steps : 2048
+    nminibatches : 64
+    lam : 0.95
+    gamma : 0.99
+    ent_coef : 0.0
+    noptepochs : 10
+    learning_rate : 0.00025
+    cliprange : 0.2
+
+  AntPyBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 64
+    lam: 0.95
+    gamma: 0.99
+    ent_coef: 0.01
+    noptepochs: 10
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  AntModifiedBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 64
+    lam: 0.95
+    gamma: 0.99
+    ent_coef: 0.01
+    noptepochs: 10
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  InvertedPendulum-v2:
+    n_steps : 2048
+    nminibatches : 32
+    lam : 0.95
+    gamma : 0.99
+    ent_coef : 0.0
+    noptepochs : 10
+    learning_rate : 0.00025
+    cliprange : 0.2
+
+  InvertedPendulumPyBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 32
+    lam: 0.95
+    gamma: 0.99
+    ent_coef: 0.0
+    noptepochs: 10
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  InvertedDoublePendulum-v2:
+    n_steps : 2048
+    lam : 0.95
+    gamma : 0.99
+    noptepochs : 10
+    nminibatches : 32
+    ent_coef : 0.0
+    learning_rate : 0.00025
+    cliprange : 0.2
+
+  InvertedDoublePendulumPyBulletEnv-v0:
+    n_steps: 2048
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    nminibatches: 32
+    ent_coef: 0.0
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  HalfCheetah-v2:
+    n_steps : 2048
+    nminibatches : 64
+    lam : 0.95
+    gamma : 0.99
+    noptepochs : 10
+    ent_coef : 0.0
+    learning_rate : 0.0003
+    cliprange : 0.2
+
+  HalfCheetahPyBulletEnv-v0:
+    n_steps : 2048
+    nminibatches : 32
+    lam : 0.95
+    gamma : 0.99
+    noptepochs : 10
+    ent_coef : 0.0
+    learning_rate : 0.0003
+    cliprange : 0.2
+
+  BipedalWalker-v2:
+    n_steps : 2048
+    nminibatches : 64
+    lam : 0.95
+    gamma : 0.99
+    noptepochs : 10
+    ent_coef : 0.001
+    learning_rate : 0.00025
+    cliprange : 0.2
+
+  Hopper-v2:
+    n_steps: 256
+    nminibatches: 16
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.01
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  HopperPyBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 32
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.00
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  Reacher-v2:
+    n_steps: 2048
+    nminibatches: 32
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.0
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  ReacherPyBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 64
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.0
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  MinitaurBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 32
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.01
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  MinitaurRealBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 32
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.01
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  MinitaurInaccurateMotorBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 32
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.01
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  HumanoidPyBulletEnv-v0:
+    n_steps: 2048
+    nminibatches: 32
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.0
+    learning_rate: 0.00025
+    cliprange: 0.2
+
+  Walker2DPyBulletEnv-v0:
+    n_steps: 1024
+    nminibatches: 32
+    lam: 0.95
+    gamma: 0.99
+    noptepochs: 10
+    ent_coef: 0.0
+    learning_rate: 0.00025
+    cliprange: 0.1
+
+
+TRPO :
+  InvertedPendulum-v2:
+    timesteps_per_batch: 5000
+    lam: 0.9
+    gamma: 0.98
+    max_kl: 0.01
+    entcoeff: 0.0
+    vf_iters : 10
+    vf_stepsize : 0.00428
+    learning_rate: 0.0004
+    cg_damping : 0.000235
+    cg_iters : 20
+
+  Humanoid-v2:
+    timesteps_per_batch: 2048
+    lam: 0.98
+    gamma: 0.99
+    max_kl: 0.005
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.003
+    learning_rate: 0.0004
+    cg_damping: 0.1
+    cg_iters: 15
+
+  Hopper-v2:
+    timesteps_per_batch: 5000
+    lam: 0.97
+    gamma: 0.995
+    max_kl: 0.01
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0004
+    cg_damping: 0.1
+    cg_iters: 20
+
+  HopperArmatureModified-v2:
+    timesteps_per_batch: 5000
+    lam: 0.97
+    gamma: 0.995
+    max_kl: 0.003
+    entcoeff: 0.0
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0004
+    cg_damping: 0.1
+    cg_iters: 20
+
+  MinitaurBulletEnv-v0:
+    timesteps_per_batch: 2048
+    lam: 0.97
+    gamma: 0.995
+    max_kl: 0.01
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0025
+    cg_damping: 0.1
+    cg_iters: 20
+
+  AntPyBulletEnv-v0:
+    timesteps_per_batch: 2048
+    lam: 0.97
+    gamma: 0.995
+    max_kl: 0.01
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0025
+    cg_damping: 0.1
+    cg_iters: 20
+
+  AntModifiedBulletEnv-v0:
+    timesteps_per_batch: 2048
+    lam: 0.97
+    gamma: 0.995
+    max_kl: 0.01
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0025
+    cg_damping: 0.1
+    cg_iters: 20
+
+  MinitaurRealBulletEnv-v0:
+    timesteps_per_batch: 2048
+    lam: 0.97
+    gamma: 0.995
+    max_kl: 0.01
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0025
+    cg_damping: 0.1
+    cg_iters: 20
+
+  MinitaurInaccurateMotorBulletEnv-v0:
+    timesteps_per_batch: 2048
+    lam: 0.97
+    gamma: 0.995
+    max_kl: 0.01
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0025
+    cg_damping: 0.1
+    cg_iters: 20
+
+  DartHopper-v1:
+    timesteps_per_batch: 5000
+    lam: 0.97
+    gamma: 0.995
+    max_kl: 0.01
+    entcoeff: 0.0
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0004
+    cg_damping: 0.1
+    cg_iters: 20
+
+  Ant-v2:
+    timesteps_per_batch: 5000
+    lam: 0.95
+    gamma: 0.99
+    max_kl: 0.01
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0004
+    cg_damping: 0.1
+    cg_iters: 20
+
+  Walker2d-v2:
+    timesteps_per_batch: 5000
+    lam: 0.98
+    gamma: 0.99
+    max_kl: 0.01
+    entcoeff: 0.01
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0004
+    cg_damping: 0.1
+    cg_iters: 20
+
+  LunarLander-v2:
+    timesteps_per_batch: 1024
+    lam: 0.98
+    gamma: 0.99
+    max_kl: 0.01
+    entcoeff: 0.0
+    vf_iters : 5
+    vf_stepsize : 0.001
+    learning_rate: 0.0004
+    cg_damping : 0.1
+    cg_iters : 10
+
+  # All data below has not been updated yet
+  # Update the values from here : https://github.com/araffin/rl-baselines-zoo/blob/master/hyperparams/trpo.yml
+  InvertedDoublePendulum-v2:
+    timesteps_per_batch: 1024
+    lam: 0.98
+    gamma: 0.99
+    max_kl: 0.01
+    entcoeff: 0.0
+    vf_iters: 5
+    vf_stepsize: 0.0003
+    learning_rate: 0.0004
+    cg_damping: 0.1
+    cg_iters: 15
+
+  HalfCheetah-v2:
+    timesteps_per_batch: 2048
+    lam: 0.95
+    gamma: 0.99
+    max_kl: 0.01
+    entcoeff: 0.0
+    vf_iters: 5
+    vf_stepsize: 0.001
+    learning_rate: 0.0004
+    cg_damping: 0.1
+    cg_iters: 15
+
+  BipedalWalker-v2:
+    timesteps_per_batch: 1024
+    lam: 0.98
+    gamma: 0.99
+    max_kl: 0.01
+    entcoeff: 0.0
+    vf_iters: 3
+    vf_stepsize: 0.0003
+    learning_rate: 0.0004
+    cg_damping: 0.01
+    cg_iters: 10
+
+  Reacher-v2:
+    timesteps_per_batch: 1024
+    lam: 0.98
+    gamma: 0.99
+    max_kl: 0.01
+    entcoeff: 0.0
+    vf_iters: 3
+    vf_stepsize: 0.0003
+    learning_rate: 0.0004
+    cg_damping: 0.01
+    cg_iters: 10
+
+SAC:
+  InvertedPendulum-v2:
+    batch_size: 64
+    buffer_size: 50000
+    ent_coef: 0.2
+    learning_rate: 0.003
+    learning_starts: 1000
+    train_freq: 1
+
+  MinitaurBulletEnv-v0:
+    batch_size: 256
+    buffer_size: 1000000
+    ent_coef: 'auto'
+    gradient_steps: 1
+    learning_rate: 0.0003
+    learning_starts: 1000
+    train_freq: 1
+
+  Hopper-v2:
+    batch_size: 256
+    buffer_size: 1000000
+    ent_coef: 'auto'
+    gradient_steps: 1
+    learning_rate: 0.0003
+    learning_starts: 1000
+    train_freq: 1
+
+  HalfCheetah-v2:
+    batch_size: 256
+    buffer_size: 1000000
+    ent_coef: 'auto'
+    gradient_steps: 1
+    learning_rate: 0.0003
+    learning_starts: 10000
+    train_freq: 1
+
+  Walker2d-v2:
+    batch_size: 256
+    buffer_size: 1000000
+    ent_coef: 0.01
+    gradient_steps: 1
+    learning_rate: 0.0003
+    learning_starts: 1000
+    train_freq: 1
+
+  Humanoid-v2:
+    batch_size: 64
+    buffer_size: 1000000
+    ent_coef: 0.01
+    gradient_steps: 1
+    learning_rate: 0.0003
+    learning_starts: 1000
+    train_freq: 1
+
+  Reacher-v2:
+    batch_size: 64
+    buffer_size: 1000000
+    ent_coef: 0.01
+    gradient_steps: 1
+    learning_rate: 0.0003
+    learning_starts: 1000
+    train_freq: 1
+
+  InvertedDoublePendulum-v2:
+    batch_size: 64
+    buffer_size: 1000000
+    ent_coef: 0.01
+    gradient_steps: 1
+    learning_rate: 0.0003
+    learning_starts: 1000
+    train_freq: 1
+
+  Ant-v2:
+    batch_size: 256
+    buffer_size: 1000000
+    ent_coef: 'auto'
+    gradient_steps: 1
+    learning_rate: 0.0003
+    learning_starts: 10000
+    train_freq: 1
+
+TD3:
+  Ant-v2:
+    batch_size : 100
+    buffer_size : 1000000
+    gamma : 0.99
+    gradient_steps : 1000
+    learning_rate : 0.001
+    learning_starts : 10000
+    noise_std : 0.2
+    noise_type : 'normal'
+    train_freq : 1000
+
+  HalfCheetah-v2:
+    batch_size: 100
+    buffer_size: 1000000
+    gamma: 0.99
+    gradient_steps: 1
+    learning_rate: 0.001
+    learning_starts: 10000
+    noise_std: 0.1
+    noise_type: 'normal'
+    train_freq: 1
+
+  Hopper-v2:
+    batch_size: 100
+    buffer_size: 1000000
+    gamma: 0.99
+    gradient_steps: 1000
+    learning_rate: 0.001
+    learning_starts: 10000
+    noise_std: 0.2
+    noise_type: 'normal'
+    train_freq: 1000
+
+  InvertedDoublePendulum-v2:
+    batch_size: 100
+    buffer_size: 1000000
+    gamma: 0.99
+    gradient_steps: 1000
+    learning_rate: 0.001
+    learning_starts: 10000
+    noise_std: 0.1
+    noise_type: 'normal'
+    train_freq: 1000
+
+  InvertedPendulum-v2:
+    batch_size: 100
+    buffer_size: 100000
+    gamma: 0.99
+    gradient_steps: 1000
+    learning_rate: 0.001
+    learning_starts: 1000
+    noise_std: 0.1
+    noise_type: 'normal'
+    train_freq: 1000
+
+  Reacher-v2:
+    batch_size: 100
+    buffer_size: 1000000
+    gamma: 0.99
+    gradient_steps: 1000
+    learning_rate: 0.001
+    learning_starts: 10000
+    noise_std: 0.1
+    noise_type: 'normal'
+    train_freq: 1000
+
+  Walker2d-v2:
+    batch_size: 100
+    buffer_size: 1000000
+    gamma: 0.99
+    gradient_steps: 1000
+    learning_rate: 0.0005
+    learning_starts: 10000
+    noise_std: 0.1
+    noise_type: 'normal'
+    train_freq: 1000
+
+
+
