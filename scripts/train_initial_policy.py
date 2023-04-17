@@ -1,28 +1,31 @@
 """Script good initial policy on some environement"""
 import gym
 from stable_baselines.common.policies import MlpPolicy as mlp_standard
-from stable_baselines.common.policies import FeedForwardPolicy as ffp_standard
-from stable_baselines.sac.policies import MlpPolicy as mlp_sac
 from stable_baselines.sac.policies import FeedForwardPolicy as ffp_sac
-from stable_baselines.td3.policies import MlpPolicy as mlp_td3
 from stable_baselines.td3.policies import FeedForwardPolicy as ffp_td3
 from stable_baselines.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNormalize
 from stable_baselines import SAC, TD3, TRPO, PPO2, ACKTR
 from stable_baselines.ddpg.noise import NormalActionNoise
-from rl_gat.gat import NoisyRealEnv
 from stable_baselines.common.callbacks import EvalCallback
 import numpy as np
 import yaml, shutil, os
-from scripts.utils import MujocoNormalized
+from rl_gat.envs import *
 
 ALGO = TRPO
 # set the environment here :
-ENV_NAME = 'HopperArmatureModified-v2'
+ENV_NAME = 'Hopper-v2'
 # set this to the parent environment
 PARAMS_ENV = 'Hopper-v2'
-TIME_STEPS = 2000000
+MODIFIED_ENV_NAME = 'HopperModified-v2'
+TIME_STEPS = 2000
 NOISE_VALUE = 0.0
 SAVE_BEST_FOR_20 = False
+MUJOCO_NORMALIZE = False
+NORMALIZE = False
+
+# create model save folder
+if not os.path.exists('data/models/'):
+    os.makedirs('data/models/')
 
 # define the model name for creating folders and saving the models
 if SAVE_BEST_FOR_20:
@@ -102,7 +105,7 @@ def train_initial_policy(
     env = DummyVecEnv([lambda: env])
 
     # loading the args for different envs
-    with open('data/target_policy_params.yaml') as file:
+    with open('../data/target_policy_params.yaml') as file:
         args = yaml.load(file, Loader=yaml.FullLoader)
     args = args[algo.__name__][PARAMS_ENV]
     print('~~ Loaded args file ~~')
@@ -234,6 +237,9 @@ def train_initial_policy(
                     log_interval=10, )
         model.save(model_name)
         evaluate_policy_on_env(env, model, render=False, iters=10)
+        # then evaluate the trained policy in the source domain to the modified env to see the performance desprepency
+        env_modified = DummyVecEnv([lambda: gym.make('HopperModified-v2')])
+        evaluate_policy_on_env(env_modified, model, render=False, iters=10)
 
     # save the environment params
     if NORMALIZE:

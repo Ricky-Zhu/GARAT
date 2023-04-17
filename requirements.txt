@@ -12,12 +12,10 @@ tensorboardX==2.0
 tensorflow==1.14.0
 tensorflow-estimator==1.14.0
 termcolor==1.1.0
-tf==1.12.1
 torch==1.4.0
 torchsummary==1.5.1
 torchvision==0.5.0
 tqdm==4.43.0
--e git+https://github.com/benelot/pybullet-gym.git@79396fccc1d0e170a092b50137148da48ee2edab#egg=pybulletgym
 PyYAML==5.3.1
 
 
