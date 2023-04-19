@@ -1,5 +1,21 @@
 """Script good initial policy on some environement"""
 import gym
+
+# Filter tensorflow version warnings
+import os
+# https://stackoverflow.com/questions/40426502/is-there-a-way-to-suppress-the-messages-tensorflow-prints/40426709
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
+import warnings
+# https://stackoverflow.com/questions/15777951/how-to-suppress-pandas-future-warning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=Warning)
+import tensorflow as tf
+tf.get_logger().setLevel('INFO')
+tf.autograph.set_verbosity(0)
+import logging
+tf.get_logger().setLevel(logging.ERROR)
+
+
 from stable_baselines.common.policies import MlpPolicy as mlp_standard
 from stable_baselines.sac.policies import FeedForwardPolicy as ffp_sac
 from stable_baselines.td3.policies import FeedForwardPolicy as ffp_td3
@@ -8,53 +24,59 @@ from stable_baselines import SAC, TD3, TRPO, PPO2, ACKTR
 from stable_baselines.ddpg.noise import NormalActionNoise
 from stable_baselines.common.callbacks import EvalCallback
 import numpy as np
-import yaml, shutil, os
+import yaml, shutil
+import sys
+
+sys.path.append('rl_gat')
 from rl_gat.envs import *
 
 ALGO = TRPO
 # set the environment here :
 ENV_NAME = 'Hopper-v2'
-# set this to the parent environment
-PARAMS_ENV = 'Hopper-v2'
 MODIFIED_ENV_NAME = 'HopperModified-v2'
-TIME_STEPS = 2000
+TIME_STEPS = 2000000
 NOISE_VALUE = 0.0
 SAVE_BEST_FOR_20 = False
 MUJOCO_NORMALIZE = False
 NORMALIZE = False
 
 # create model save folder
-if not os.path.exists('data/models/'):
-    os.makedirs('data/models/')
+if not os.path.exists('scripts/data/models/'):
+    os.makedirs('scripts/data/models/')
+
 
 # define the model name for creating folders and saving the models
-if SAVE_BEST_FOR_20:
-    model_name = "data/models/" + ALGO.__name__ + "_initial_policy_steps_" + ENV_NAME + "_" + str(
-        TIME_STEPS) + "_best_.pkl"
-else:
-    model_name = "data/models/" + ALGO.__name__ + "_initial_policy_steps_" + ENV_NAME + "_" + str(
-        TIME_STEPS) + "_.pkl"
-
-# Separate evaluation env
-if SAVE_BEST_FOR_20:
-    eval_env = DummyVecEnv([lambda: gym.make(ENV_NAME)])
-
-    eval_callback = EvalCallback(eval_env,
-                                 best_model_save_path=model_name[:-4],
-                                 n_eval_episodes=30,
-                                 eval_freq=5000,
-                                 deterministic=True,
-                                 render=False,
-                                 verbose=1)
+def create_model_name(env_name):
+    if SAVE_BEST_FOR_20:
+        model_name = "data/models/" + ALGO.__name__ + "_initial_policy_steps_" + env_name + "_" + str(
+            TIME_STEPS) + "_best_.pkl"
+    else:
+        model_name = "data/models/" + ALGO.__name__ + "_initial_policy_steps_" + env_name + "_" + str(
+            TIME_STEPS) + "_.pkl"
+    return model_name
 
 
-    def save_the_model():
-        shutil.move(model_name[:-4] + '/best_model.zip', model_name)
-        try:
-            os.rmdir(model_name[:-4])
-            print('Successfully saved the model.')
-        except Exception as e:
-            print(e)
+#
+# # Separate evaluation env
+# if SAVE_BEST_FOR_20:
+#     eval_env = DummyVecEnv([lambda: gym.make(ENV_NAME)])
+#
+#     eval_callback = EvalCallback(eval_env,
+#                                  best_model_save_path=model_name[:-4],
+#                                  n_eval_episodes=30,
+#                                  eval_freq=5000,
+#                                  deterministic=True,
+#                                  render=False,
+#                                  verbose=1)
+#
+#
+#     def save_the_model():
+#         shutil.move(model_name[:-4] + '/best_model.zip', model_name)
+#         try:
+#             os.rmdir(model_name[:-4])
+#             print('Successfully saved the model.')
+#         except Exception as e:
+#             print(e)
 
 
 def evaluate_policy_on_env(env,
@@ -90,6 +112,7 @@ def train_initial_policy(
         model_name,
         algo=ALGO,
         env_name=ENV_NAME,
+        modified_env_name=MODIFIED_ENV_NAME,
         time_steps=TIME_STEPS):
     """Uses the specified algorithm on the target environment"""
     print("Using algorithm : ", algo.__name__)
@@ -98,21 +121,16 @@ def train_initial_policy(
     # define the environment here
     env = gym.make(env_name)
 
-    print('~~ ENV Obs RANGE : ', env.observation_space.low, env.observation_space.high)
-    print('~~~ ENV Action RANGE : ', env.action_space.low, env.action_space.high)
 
-    print('Using Dummy Vec Env')
     env = DummyVecEnv([lambda: env])
 
     # loading the args for different envs
-    with open('../data/target_policy_params.yaml') as file:
+    with open('data/target_policy_params.yaml') as file:
         args = yaml.load(file, Loader=yaml.FullLoader)
-    args = args[algo.__name__][PARAMS_ENV]
-    print('~~ Loaded args file ~~')
+    args = args[algo.__name__][ENV_NAME]
+
 
     if algo.__name__ == "SAC":
-        print('Initializing SAC with RLBaselinesZoo hyperparameters .. ')
-        print('using 256 node architecture as in the paper')
 
         class CustomPolicy(ffp_sac):
             def __init__(self, *args, **kwargs):
@@ -156,11 +174,11 @@ def train_initial_policy(
                     )
 
     elif algo.__name__ == "TRPO":
-        print('Initializing TRPO with RLBaselinesZoo hyperparameters .. ')
+
         # hyperparameters suggestions from :
         # https://github.com/araffin/rl-baselines-zoo/blob/master/trained_agents/sac/HopperBulletEnv-v0/config.yml
         model = TRPO(mlp_standard, env,
-                     verbose=1,
+                     verbose=0,
                      tensorboard_log='data/TBlogs/initial_policy_training',
                      timesteps_per_batch=args['timesteps_per_batch'],
                      lam=args['lam'],
@@ -204,17 +222,7 @@ def train_initial_policy(
                      )
 
     else:
-        print('No algorithm matched. Using SAC .. ')
-        model = SAC(CustomPolicy, env,
-                    verbose=1,
-                    batch_size=args['batch_size'],
-                    buffer_size=args['buffer_size'],
-                    ent_coef=args['ent_coef'],
-                    learning_starts=args['learning_starts'],
-                    learning_rate=args['learning_rate'],
-                    train_freq=args['train_freq'],
-                    )
-
+        pass
     # change model name if using normalization
     if NORMALIZE:
         model_name = model_name.replace('.pkl', 'normalized_.pkl')
@@ -222,24 +230,28 @@ def train_initial_policy(
     elif MUJOCO_NORMALIZE:
         model_name = model_name.replace('.pkl', 'mujoco_norm_.pkl')
 
-    if SAVE_BEST_FOR_20:
-        model.learn(total_timesteps=time_steps,
-                    tb_log_name=model_name,
-                    log_interval=10,
-                    callback=eval_callback)
-        save_the_model()
-        model_name = model_name.replace('best_', '')
-        model.save(model_name)
+    # if SAVE_BEST_FOR_20:
+    #     model.learn(total_timesteps=time_steps,
+    #                 tb_log_name=model_name,
+    #                 log_interval=10,
+    #                 callback=eval_callback)
+    #     save_the_model()
+    #     model_name = model_name.replace('best_', '')
+    #     model.save(model_name)
 
     else:
         model.learn(total_timesteps=time_steps,
                     tb_log_name=model_name.split('/')[-1],
                     log_interval=10, )
         model.save(model_name)
+        print('--------------' + env_name + '----------------')
         evaluate_policy_on_env(env, model, render=False, iters=10)
         # then evaluate the trained policy in the source domain to the modified env to see the performance desprepency
-        env_modified = DummyVecEnv([lambda: gym.make('HopperModified-v2')])
+        env_modified = DummyVecEnv([lambda: gym.make(modified_env_name)])
+        print('--------------' + modified_env_name + '----------------')
         evaluate_policy_on_env(env_modified, model, render=False, iters=10)
+        print('******************************')
+        print('\n')
 
     # save the environment params
     if NORMALIZE:
@@ -251,4 +263,15 @@ def train_initial_policy(
 
 
 if __name__ == '__main__':
-    train_initial_policy(model_name=model_name)
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description='train initial policy in the default env and evaluate on also the modified env')
+    parser.add_argument('--env_name', default='Hopper-v2', type=str, help='the source env')
+    parser.add_argument('--modified_env_name', default='HopperMassModified-v2', type=str, help='the target env')
+
+    args = parser.parse_args()
+    model_name = create_model_name(env_name=args.env_name)
+    train_initial_policy(model_name=model_name,
+                         env_name=args.env_name,
+                         modified_env_name=args.modified_env_name)

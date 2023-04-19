@@ -1,8 +1,7 @@
-atari-py==0.2.
 gym==0.17.1
 matplotlib==3.2.1
 mpi4py==3.0.3
-mujoco-py==2.0.2.9
+mujoco-py==2.0.2.10
 numpy==1.18.2
 pybullet==2.7.1
 scipy==1.4.1
