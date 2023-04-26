@@ -1,4 +1,20 @@
+# Filter tensorflow version warnings
+import os
+
+# https://stackoverflow.com/questions/40426502/is-there-a-way-to-suppress-the-messages-tensorflow-prints/40426709
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 import warnings
+
+# https://stackoverflow.com/questions/15777951/how-to-suppress-pandas-future-warning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=Warning)
+import tensorflow as tf
+
+tf.get_logger().setLevel('INFO')
+tf.autograph.set_verbosity(0)
+import logging
+
+tf.get_logger().setLevel(logging.ERROR)
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from rl_gat.reinforcedgat import ReinforcedGAT
@@ -13,6 +29,7 @@ from scripts.utils import MujocoNormalized
 from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
 import torch
 import random
+from rl_gat.envs import *
 
 torch.backends.cudnn.deterministic = True
 
@@ -84,41 +101,36 @@ def evaluate_policy_on_env(env,
 
 
 def main():
-    # SIM_ENV_NAME = 'InvertedPendulum-v2'
-    # REAL_ENV_NAME = 'InvertedPendulumModified-v2_old'
-
-    # expt_label = input('Enter a label for the experiment : ')
-
     parser = argparse.ArgumentParser(description='Reinforced Grounded Action Transformation')
     parser.add_argument('--target_policy_algo', default="TRPO", type=str,
                         help="name in str of the agent policy training algorithm")
-    parser.add_argument('--action_tf_policy_algo', default="TRPO", type=str,
+    parser.add_argument('--action_tf_policy_algo', default="PPO2", type=str,
                         help="name in str of the Action Transformer policy training algorithm")
-    parser.add_argument('--load_policy_path', default='data/models/TRPO_initial_policy_steps_Hopper-v2_1000000_.pkl',
+    parser.add_argument('--load_policy_path', default='data/models/TRPO_initial_policy_steps_HalfCheetah-v2_2000000_.pkl',
                         help="relative path of initial policy trained in sim")
     parser.add_argument('--alpha', default=1.0, type=float, help="Deprecated feature. Ignore")
     parser.add_argument('--beta', default=1.0, type=float, help="Deprecated feature. Ignore")
-    parser.add_argument('--n_trainsteps_target_policy', default=1000000, type=int,
+    parser.add_argument('--n_trainsteps_target_policy', default=10000, type=int,
                         help="Number of time steps to train the agent policy in the grounded environment")
     parser.add_argument('--n_trainsteps_action_tf_policy', default=1000000, type=int,
                         help="Timesteps to train the Action Transformer policy in the ATPEnvironment")
     parser.add_argument('--num_cores', default=10, type=int,
                         help="Number of threads to use while collecting real world experience")
-    parser.add_argument('--sim_env', default='InvertedPendulum-v2',
+    parser.add_argument('--sim_env', default='HalfCheetah-v2',
                         help="Name of the simulator environment (Unmodified)")
-    parser.add_argument('--real_env', default='InvertedPendulumModified-v2',
+    parser.add_argument('--real_env', default='HalfCheetahModified-v2',
                         help="Name of the Real World environment (Modified)")
     parser.add_argument('--n_frames', default=1, type=int, help="Number of previous frames observed by discriminator")
     parser.add_argument('--expt_number', default=1, type=int, help="Expt. number to keep track of multiple experiments")
     parser.add_argument('--n_grounding_steps', default=1, type=int,
                         help="Number of grounding steps. (Outerloop of algorithm ) ")
-    parser.add_argument('--n_iters_atp', default=20, type=int, help="Number of GAN iterations")
-    parser.add_argument('--discriminator_epochs', default=5, type=int, help="Discriminator epochs per GAN iteration")
+    parser.add_argument('--n_iters_atp', default=1, type=int, help="Number of GAN iterations")
+    parser.add_argument('--discriminator_epochs', default=1, type=int, help="Discriminator epochs per GAN iteration")
     parser.add_argument('--generator_epochs', default=50, type=int, help="ATP epochs per GAN iteration")
     parser.add_argument('--real_trajs', default=100, type=int, help="Set max amount of real TRAJECTORIES used")
     parser.add_argument('--sim_trajs', default=100, type=int, help="Set max amount of sim TRAJECTORIES used")
-    parser.add_argument('--real_trans', default=5000, type=int, help="amount of real world transitions used")
-    parser.add_argument('--gsim_trans', default=5000, type=int, help="amount of simulator transitions used")
+    parser.add_argument('--real_trans', default=50, type=int, help="amount of real world transitions used")
+    parser.add_argument('--gsim_trans', default=50, type=int, help="amount of simulator transitions used")
     parser.add_argument('--debug', action='store_true', help="DEPRECATED")
     parser.add_argument('--eval', action='store_true',
                         help="set to true to evaluate the agent policy in the real environment, after training in grounded environment")
@@ -130,7 +142,6 @@ def main():
                         help="Set this only if using TRPO for the action transformer policy")
     parser.add_argument('--clip_range', default=0.1, type=float,
                         help="PPO objective clipping factor -> Action transformer policy")
-    parser.add_argument('--use_condor', action='store_true', help="UNUSABLE")
     parser.add_argument('--plot', action='store_true',
                         help="visualize the action transformer policy - works well only for simple environments")
     parser.add_argument('--tensorboard', action='store_true', help="visualize training in tensorboard")
@@ -160,7 +171,7 @@ def main():
                         help="Number of optimization epochs performed per minibatch by the PPO algorithm to update the action transformer policy")
     parser.add_argument('--deterministic', default=0, type=int,
                         help="set to 0 to use the deterministic action transformer policy in the grounded environment")
-    parser.add_argument('--single_batch_size', default=0, type=int, help="batch size for the GARAT update")
+    parser.add_argument('--single_batch_size', default=256, type=int, help="batch size for the GARAT update")
 
     args = parser.parse_args()
 
@@ -181,13 +192,7 @@ def main():
         args.expt_number)
 
     # create the experiment folder
-    if args.use_condor:
-        if args.folder_namespace is "None":
-            expt_path = '/u/' + args.real_env + '/' + expt_label
-        else:
-            expt_path = '/u/' + args.folder_namespace + '/' + expt_label
-    else:
-        expt_path = 'data/models/garat/' + expt_label
+    expt_path = 'data/models/garat/' + expt_label
     expt_already_running = False
 
     gatworld = ReinforcedGAT(
@@ -197,8 +202,8 @@ def main():
         real_env_name=args.real_env,
         expt_label=expt_label,
         frames=args.n_frames,
-        algo=args.target_policy_algo, # agent policy: trpo
-        atp_algo=args.action_tf_policy_algo, # action transformer policy: ppo
+        algo=args.target_policy_algo,  # agent policy: trpo
+        atp_algo=args.action_tf_policy_algo,  # action transformer policy: ppo
         debug=args.debug,
         real_trajs=args.real_trajs,
         sim_trajs=args.sim_trajs,
@@ -210,6 +215,22 @@ def main():
         atp_loss_function=args.loss_function,
         single_batch_size=None if args.single_batch_size == 0 else args.single_batch_size,
     )
+
+    # first see the performance descrepency of load policy in the source env and the target env
+    cprint('first check if there are performance descrepency', 'red', 'on_green')
+    print('show the result of the source env')
+    val = evaluate_policy_on_env(gym.make(args.sim_env),
+                                 gatworld.target_policy,
+                                 render=False,
+                                 iters=20,
+                                 deterministic=True)
+    print('show the result of the target env')
+    val = evaluate_policy_on_env(gym.make(args.real_env),
+                                 gatworld.target_policy,
+                                 render=False,
+                                 iters=20,
+                                 deterministic=True)
+
 
     # checkpointing logic ~~ necessary when deploying script on Condor cluster
     if os.path.exists(expt_path):
@@ -233,8 +254,12 @@ def main():
         os.makedirs(expt_path)
         grounding_step = 0
 
-        with open(expt_path + '/commandline_args.txt', 'w') as f:
-            f.write('\n'.join(sys.argv[1:]))
+        try:  # save the argments
+            with open(expt_path + '/commandline_args.txt', 'w') as f:
+                f.write('\n'.join(sys.argv[1:]))
+
+        except:
+            pass
 
     start_grouding_step = grounding_step
 
@@ -303,7 +328,6 @@ def main():
                 # save the action transformer policy for further analysis
                 gatworld.save_atp(grounding_step=str(grounding_step) + '_' + str(ii))
 
-
         gatworld.train_target_policy_in_grounded_env(grounding_step=grounding_step,
                                                      alpha=args.alpha,
                                                      time_steps=args.n_trainsteps_target_policy,
@@ -344,63 +368,59 @@ def main():
                 cprint(e, 'red')
 
     # expt done, now get the green and red lines
-    if args.eval:
-        # green line
-        cprint('**~~vv^^ GETTING GREEN AND RED LINES ^^vv~~**', 'red', 'on_green')
-        test_env = gym.make(args.real_env)
-        if 'mujoco_norm' in args.load_policy_path:
-            test_env = MujocoNormalized(test_env)
-        elif 'normalized' in args.load_policy_path:
-            test_env = DummyVecEnv([lambda: test_env])
-            test_env = VecNormalize.load('data/models/env_stats/' + args.sim_env + '.pkl',
-                                         venv=test_env)
-
-        sim_policy = 'data/models/' + args.target_policy_algo + '_initial_policy_steps_' + args.sim_env + '_1000000_.pkl'
-        real_policy = 'data/models/' + args.target_policy_algo + '_initial_policy_steps_' + args.real_env + '_1000000_.pkl'
-
-        if 'HalfCheetah' in args.load_policy_path or 'Reacher' in args.load_policy_path:
-            sim_policy = sim_policy.replace('1000000_.pkl', '2000000_.pkl')
-            real_policy = real_policy.replace('1000000_.pkl', '2000000_.pkl')
-
-        # if 'Walker2d' in args.load_policy_path:
-        #     sim_policy = sim_policy.replace('1000000_.pkl', '2000000_mujoco_norm_.pkl')
-        #     real_policy = real_policy.replace('1000000_.pkl', '2000000_mujoco_norm_.pkl')
-
-        if 'mujoco_norm' in args.load_policy_path:
-            sim_policy = sim_policy.replace('1000000_.pkl', '2000000_mujoco_norm_.pkl')
-            real_policy = real_policy.replace('1000000_.pkl', '2000000_mujoco_norm_.pkl')
-
-        elif 'normalized' in args.load_policy_path:
-            sim_policy = sim_policy.replace('1000000_.pkl', '1000000_normalized_.pkl')
-            real_policy = real_policy.replace('1000000_.pkl', '1000000_normalized_.pkl')
-
-        if args.target_policy_algo == 'PPO2':
-            algo = PPO2
-        elif args.target_policy_algo == 'TRPO':
-            algo = TRPO
-
-        val = evaluate_policy_on_env(test_env,
-                                     algo.load(sim_policy),
-                                     render=False,
-                                     iters=10,
-                                     deterministic=True)
-        with open(expt_path + "/green_red.txt", "a") as txt_file:
-            print(val, file=txt_file)
-
-        # red line
-        del algo  # remove the old algo and reload it.
-        if args.target_policy_algo == 'PPO2':
-            algo = PPO2
-        elif args.target_policy_algo == 'TRPO':
-            algo = TRPO
-
-        val = evaluate_policy_on_env(test_env,
-                                     algo.load(real_policy),
-                                     render=False,
-                                     iters=10,
-                                     deterministic=True)
-        with open(expt_path + "/green_red.txt", "a") as txt_file:
-            print(val, file=txt_file)
+    # if args.eval:
+    #     # green line
+    #     cprint('**~~vv^^ GETTING GREEN AND RED LINES ^^vv~~**', 'red', 'on_green')
+    #     test_env = gym.make(args.real_env)
+    #     if 'mujoco_norm' in args.load_policy_path:
+    #         test_env = MujocoNormalized(test_env)
+    #     elif 'normalized' in args.load_policy_path:
+    #         test_env = DummyVecEnv([lambda: test_env])
+    #         test_env = VecNormalize.load('data/models/env_stats/' + args.sim_env + '.pkl',
+    #                                      venv=test_env)
+    #
+    #     sim_policy = 'data/models/' + args.target_policy_algo + '_initial_policy_steps_' + args.sim_env + '_1000000_.pkl'
+    #     real_policy = 'data/models/' + args.target_policy_algo + '_initial_policy_steps_' + args.real_env + '_1000000_.pkl'
+    #
+    #     if 'HalfCheetah' in args.load_policy_path or 'Reacher' in args.load_policy_path:
+    #         sim_policy = sim_policy.replace('1000000_.pkl', '2000000_.pkl')
+    #         real_policy = real_policy.replace('1000000_.pkl', '2000000_.pkl')
+    #
+    #     if 'mujoco_norm' in args.load_policy_path:
+    #         sim_policy = sim_policy.replace('1000000_.pkl', '2000000_mujoco_norm_.pkl')
+    #         real_policy = real_policy.replace('1000000_.pkl', '2000000_mujoco_norm_.pkl')
+    #
+    #     elif 'normalized' in args.load_policy_path:
+    #         sim_policy = sim_policy.replace('1000000_.pkl', '1000000_normalized_.pkl')
+    #         real_policy = real_policy.replace('1000000_.pkl', '1000000_normalized_.pkl')
+    #
+    #     if args.target_policy_algo == 'PPO2':
+    #         algo = PPO2
+    #     elif args.target_policy_algo == 'TRPO':
+    #         algo = TRPO
+    #
+    #     val = evaluate_policy_on_env(test_env,
+    #                                  algo.load(sim_policy),
+    #                                  render=False,
+    #                                  iters=10,
+    #                                  deterministic=True)
+    #     with open(expt_path + "/green_red.txt", "a") as txt_file:
+    #         print(val, file=txt_file)
+    #
+    #     # red line
+    #     del algo  # remove the old algo and reload it.
+    #     if args.target_policy_algo == 'PPO2':
+    #         algo = PPO2
+    #     elif args.target_policy_algo == 'TRPO':
+    #         algo = TRPO
+    #
+    #     val = evaluate_policy_on_env(test_env,
+    #                                  algo.load(real_policy),
+    #                                  render=False,
+    #                                  iters=10,
+    #                                  deterministic=True)
+    #     with open(expt_path + "/green_red.txt", "a") as txt_file:
+    #         print(val, file=txt_file)
 
     os._exit(0)
 

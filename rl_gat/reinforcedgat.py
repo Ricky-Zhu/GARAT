@@ -1079,7 +1079,7 @@ class ReinforcedGAT:
                                            policy=self.target_policy,
                                            limit_trans_count=int(self.real_trans),
                                            num=None,
-                                           add_noise=0.0,
+                                           add_noise=0.0,  # TODO: check whether add noise will help
                                            deterministic=False,
                                            )
 
@@ -1144,7 +1144,7 @@ class ReinforcedGAT:
             X_list = [X_list[i] for i in X_list_indices]
             Y_list = [Y_list[i] for i in X_list_indices]
 
-        print('Real data trajectories count : ', len(Y_list))
+        print('Real data transition count : ', len(Y_list))  # (s,a,s_)
 
         ######### COLLECT FAKE TRAJECTORIES ###################
 

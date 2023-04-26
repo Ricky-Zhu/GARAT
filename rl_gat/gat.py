@@ -670,7 +670,7 @@ def train_model_es(model,
                 grad_pen = compute_grad_pen(x_batch, y_batch, model)
                 loss = loss + grad_pen
 
-            print('\repoch: ' + str(epoch) + ' loss: ' + str(loss.item()), end='')
+            # print('\repoch: ' + str(epoch) + ' loss: ' + str(loss.item()), end='')
             # Zero the gradients
             optimizer.zero_grad()
             # perform a backward pass (backpropagation)
