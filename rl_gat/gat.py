@@ -409,7 +409,6 @@ def collect_gym_trajectories(
     num_env = env.num_envs  # Number of parallel envs to use
     action_lim = abs(env.action_space.high)
 
-    print('COLLECTING TRAJECTORIES ... ')
     transition_count = 0
     # for _ in tqdm(range(num//num_env)):
     while True:
@@ -454,7 +453,6 @@ def collect_gym_trajectories(
 
         if limit_trans_count is not None:
             if transition_count > limit_trans_count:
-                print('~~ STOPPING COLLECTING EXPERIENCE ~~')
                 break
 
     if collect_rew: return Ts, Rs
@@ -583,7 +581,7 @@ def train_model_es(model,
     y_list = np.array(y_list).copy()
 
     class_sample_count = np.array([len(np.where(y_list == t)[0]) for t in np.unique(y_list)])
-    print("real_fake_class_count : ", class_sample_count.shape, class_sample_count)
+    # print("real_fake_class_count : ", class_sample_count.shape, class_sample_count)
 
     if use_es:
         indices = np.random.permutation(x_list.shape[0])
@@ -624,12 +622,12 @@ def train_model_es(model,
     if use_es:
         valid_data = data.TensorDataset(x_valid_normalized, y_valid_normalized)
 
-    print('total data points : ', np.sum(class_sample_count))
+    # print('total data points : ', np.sum(class_sample_count))
 
     batch_size = math.floor(batch_size / 2.0) * 2  # round batchsize to the nearest even number
-    print('BATCH SIZE : ', batch_size)
+    # print('BATCH SIZE : ', batch_size)
     drop_bool = np.floor(np.sum(class_sample_count) / batch_size) == np.sum(class_sample_count) / batch_size
-    print('drop_last : ', not drop_bool)
+    # print('drop_last : ', not drop_bool)
 
     train_loader = data.DataLoader(
         dataset=train_data,
@@ -691,7 +689,7 @@ def train_model_es(model,
 
         train_loss = np.average(train_losses)
 
-        print('\ntraining loss:', train_loss)
+
         if use_es:
             valid_loss = np.average(valid_losses)
             print('validation loss:', valid_loss)
@@ -700,6 +698,7 @@ def train_model_es(model,
                 best_loss = valid_loss
                 torch.save(model.state_dict(), checkpoint_name + '.pt')
             print('current best:', best_loss, '(epoch', best_epoch, ')')
+    print('\ntraining loss:', train_loss)
 
     if dump_loss_to_file:
         with open(expt_path + '/disc_loss.txt', "a") as txt_file:

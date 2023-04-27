@@ -17,8 +17,8 @@ python test.py \
   --generator_epochs 50 \
   --real_trajs 1000 \
   --sim_trajs 1000 \
-  --real_trans 1024 \
-  --gsim_trans 1024 \
+  --real_trans 5000 \
+  --gsim_trans 5000 \
   --ent_coeff 0.01 \
   --max_kl 3e-4 \
   --clip_range 0.1 \
@@ -32,6 +32,6 @@ python test.py \
   --single_batch_size 512 \
   --namespace "CODE_SUBMIT_" \
   --deterministic 0 \
-  --n_iters_atp 50 &
+  --n_iters_atp 100 &
   wait
   echo " ~~~ Experiment Completed :) ~~"

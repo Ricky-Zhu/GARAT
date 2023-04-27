@@ -753,7 +753,7 @@ class ReinforcedGAT:
                 self.target_policy = TRPO.load(
                     load_policy,
                     # env=DummyVecEnv([lambda:env]),
-                    verbose=1,
+                    verbose=0,
                     # disabled tensorboard temporarily
                     tensorboard_log='data/TBlogs/' + self.env_name if tensorboard else None,
                     timesteps_per_batch=args['timesteps_per_batch'],
@@ -901,7 +901,7 @@ class ReinforcedGAT:
                                                                           vf=[64, 64])],
                                                            feature_extraction="mlp")
 
-            cprint('SINGLE BATCH SIZE : ' + str(self.single_batch_size), 'red', attrs=['blink'])
+            # cprint('SINGLE BATCH SIZE : ' + str(self.single_batch_size), 'red', attrs=['blink'])
             self.action_tf_policy = PPO2(
                 policy=OtherMlpPolicy,
                 # policy = CustomPPO2Policy,
@@ -1086,9 +1086,9 @@ class ReinforcedGAT:
         self.avg_real_traj_length = [np.average([len(real_Ts[z]) for z in range(len(real_Ts))])]
         self.max_real_traj_length = [np.max([len(real_Ts[z]) for z in range(len(real_Ts))])]
 
-        print('LENGTH OF FIRST TRAJECTORY : ', len(real_Ts[0]))
-        print('AVERAGE LENGTH OF TRAJECTORY : ', self.avg_real_traj_length)
-        print('MAX LENGTH OF TRAJECTORY : ', self.max_real_traj_length)
+        # print('LENGTH OF FIRST TRAJECTORY : ', len(real_Ts[0]))
+        # print('AVERAGE LENGTH OF TRAJECTORY : ', self.avg_real_traj_length)
+        # print('MAX LENGTH OF TRAJECTORY : ', self.max_real_traj_length)
 
         X_list, Y_list = [], []
         for T in real_Ts:  # For each trajectory:
@@ -1126,7 +1126,7 @@ class ReinforcedGAT:
         trajectories
         """
 
-        if compute_grad_penalty: cprint('COMPUTING GRAD PENALTY', 'yellow', attrs=['blink'])
+        # if compute_grad_penalty: cprint('COMPUTING GRAD PENALTY', 'yellow', attrs=['blink'])
 
         if num_sim_traj is None: num_sim_traj = self.NUM_SIM_WORLD_TRAJECTORIES
         X_list = []  # previous states + action + next state
@@ -1144,7 +1144,7 @@ class ReinforcedGAT:
             X_list = [X_list[i] for i in X_list_indices]
             Y_list = [Y_list[i] for i in X_list_indices]
 
-        print('Real data transition count : ', len(Y_list))  # (s,a,s_)
+        # print('Real data transition count : ', len(Y_list))  # (s,a,s_)
 
         ######### COLLECT FAKE TRAJECTORIES ###################
 
@@ -1171,7 +1171,6 @@ class ReinforcedGAT:
                                )
 
         grnd_env = DummyVecEnv([lambda: grnd_env])
-        print('COLLECTING GROUNDED SIM TRAJECTORIES')
 
         fake_Ts = collect_gym_trajectories(
             env=grnd_env,
@@ -1180,13 +1179,13 @@ class ReinforcedGAT:
             add_noise=0.0,
             limit_trans_count=5000 if single_batch_test else int(self.real_trans),  # -int(self.gsim_trans),
             max_timesteps=self.max_real_traj_length[0],
-            deterministic=False,
+            deterministic=False,  # TODO: check here whether need to be set as deterministic
         )
 
-        print('LENGTH OF FIRST TRAJECTORY : ', len(fake_Ts[0]))
-        print('NUM TRAJS : ', len(fake_Ts))
-        print('AVERAGE LENGTH OF TRAJECTORY : ', [np.average([len(fake_Ts[z]) for z in range(len(fake_Ts))])])
-        print('MAX TRAJECTORY LENGTH : ', [np.max([len(fake_Ts[z]) for z in range(len(fake_Ts))])])
+        # print('LENGTH OF FIRST TRAJECTORY : ', len(fake_Ts[0]))
+        # print('NUM TRAJS : ', len(fake_Ts))
+        # print('AVERAGE LENGTH OF TRAJECTORY : ', [np.average([len(fake_Ts[z]) for z in range(len(fake_Ts))])])
+        # print('MAX TRAJECTORY LENGTH : ', [np.max([len(fake_Ts[z]) for z in range(len(fake_Ts))])])
 
         # unpack trajectories and create the dataset to train discriminator
 
@@ -1222,9 +1221,9 @@ class ReinforcedGAT:
             X_list.extend(X_list_fake)
             Y_list.extend(Y_list_fake)
 
-        print('STARTING TO TRAIN THE DISCRIMINATOR')
-
-        print('Num disc updates : ', len(Y_list) / self.single_batch_size)
+        # print('STARTING TO TRAIN THE DISCRIMINATOR')
+        #
+        # print('Num disc updates : ', len(Y_list) / self.single_batch_size)
 
         self.discriminator_norm_x, _ = train_model_es(
             model=self.discriminator,

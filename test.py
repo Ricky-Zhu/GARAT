@@ -106,7 +106,8 @@ def main():
                         help="name in str of the agent policy training algorithm")
     parser.add_argument('--action_tf_policy_algo', default="PPO2", type=str,
                         help="name in str of the Action Transformer policy training algorithm")
-    parser.add_argument('--load_policy_path', default='data/models/TRPO_initial_policy_steps_HalfCheetah-v2_2000000_.pkl',
+    parser.add_argument('--load_policy_path',
+                        default='data/models/TRPO_initial_policy_steps_HalfCheetah-v2_2000000_.pkl',
                         help="relative path of initial policy trained in sim")
     parser.add_argument('--alpha', default=1.0, type=float, help="Deprecated feature. Ignore")
     parser.add_argument('--beta', default=1.0, type=float, help="Deprecated feature. Ignore")
@@ -132,7 +133,7 @@ def main():
     parser.add_argument('--real_trans', default=50, type=int, help="amount of real world transitions used")
     parser.add_argument('--gsim_trans', default=50, type=int, help="amount of simulator transitions used")
     parser.add_argument('--debug', action='store_true', help="DEPRECATED")
-    parser.add_argument('--eval', action='store_true',
+    parser.add_argument('--eval', action='store_false',
                         help="set to true to evaluate the agent policy in the real environment, after training in grounded environment")
     parser.add_argument('--use_cuda', action='store_true', help="DEPRECATED. Not using CUDA")
     parser.add_argument('--instance_noise', action='store_true', help="DEPRECATED. Not using instance noise")
@@ -196,7 +197,7 @@ def main():
     expt_already_running = False
 
     gatworld = ReinforcedGAT(
-        load_policy=args.load_policy_path,
+        load_policy=args.load_policy_path,  # the path of the pretrained policy in the source env
         num_cores=args.num_cores,
         sim_env_name=args.sim_env,
         real_env_name=args.real_env,
@@ -205,14 +206,14 @@ def main():
         algo=args.target_policy_algo,  # agent policy: trpo
         atp_algo=args.action_tf_policy_algo,  # action transformer policy: ppo
         debug=args.debug,
-        real_trajs=args.real_trajs,
-        sim_trajs=args.sim_trajs,
+        real_trajs=args.real_trajs,  # not used
+        sim_trajs=args.sim_trajs,  # not used
         use_cuda=args.use_cuda,
-        real_trans=args.real_trans,
+        real_trans=args.real_trans,  # the collected transition limit once
         gsim_trans=args.gsim_trans,
         expt_path=expt_path,
         tensorboard=args.tensorboard,
-        atp_loss_function=args.loss_function,
+        atp_loss_function=args.loss_function,  # here GAIL is used
         single_batch_size=None if args.single_batch_size == 0 else args.single_batch_size,
     )
 
@@ -230,7 +231,6 @@ def main():
                                  render=False,
                                  iters=20,
                                  deterministic=True)
-
 
     # checkpointing logic ~~ necessary when deploying script on Condor cluster
     if os.path.exists(expt_path):
@@ -263,22 +263,24 @@ def main():
 
     start_grouding_step = grounding_step
 
-    # the reset disc and dont reset actually is not used
-    if args.reset_disc_only or args.dont_reset:
-        cprint('~~ INITIALIZING DISCRIMINATOR AND ATP POLICY ~~', 'yellow')
-        gatworld._init_rgat_models(algo=args.action_tf_policy_algo,
-                                   ent_coeff=args.ent_coeff,
-                                   max_kl=args.max_kl,
-                                   clip_range=args.clip_range,
-                                   atp_loss_function=args.loss_function,
-                                   disc_lr=args.disc_lr,
-                                   atp_lr=args.atp_lr,
-                                   nminibatches=args.nminibatches,
-                                   noptepochs=args.noptepochs,
-                                   )
+    # # the reset disc and dont reset actually is not used
+    # if args.reset_disc_only or args.dont_reset:
+    #     cprint('~~ INITIALIZING DISCRIMINATOR AND ATP POLICY ~~', 'yellow')
+    #     gatworld._init_rgat_models(algo=args.action_tf_policy_algo,
+    #                                ent_coeff=args.ent_coeff,
+    #                                max_kl=args.max_kl,
+    #                                clip_range=args.clip_range,
+    #                                atp_loss_function=args.loss_function,
+    #                                disc_lr=args.disc_lr,
+    #                                atp_lr=args.atp_lr,
+    #                                nminibatches=args.nminibatches,
+    #                                noptepochs=args.noptepochs,
+    #                                )
 
     for _ in range(args.n_grounding_steps - start_grouding_step):
+
         grounding_step += 1
+        cprint('grounding step {}/{}'.format(grounding_step, args.n_grounding_steps), 'blue')
 
         gatworld.collect_experience_from_real_env()
 
@@ -286,6 +288,7 @@ def main():
         # create the discriminator and the ATP and its training env
         gatworld._init_rgat_models(algo=args.action_tf_policy_algo,
                                    ent_coeff=args.ent_coeff,
+                                   # these policy parameters are for the action transformation policy
                                    max_kl=args.max_kl,
                                    clip_range=args.clip_range,
                                    atp_loss_function=args.loss_function,
@@ -322,7 +325,8 @@ def main():
                                                    grounding_step=str(grounding_step) + '_' + str(ii),
                                                    )
             else:
-                print('Environment has action space > 5. Skipping AT plotting')
+                # print('Environment has action space > 5. Skipping AT plotting')
+                pass
 
             if args.save_atp:
                 # save the action transformer policy for further analysis
@@ -337,8 +341,10 @@ def main():
                                                      )
 
         if args.eval:
-            cprint('Evaluating target policy in environment .. ', 'red', 'on_blue')
+            cprint('Evaluating target policy in environment for grounding step {}'.format(grounding_step), 'red',
+                   'on_blue')
             test_env = gym.make(args.real_env)
+            test_sim_env = gym.make(args.sim_env)
             if 'mujoco_norm' in args.load_policy_path:
                 test_env = MujocoNormalized(test_env)
             elif 'normalized' in args.load_policy_path:
@@ -347,23 +353,32 @@ def main():
                                              venv=test_env)
             # evaluate on the real world.
             try:
-                val = evaluate_policy_on_env(test_env,
-                                             gatworld.target_policy,
-                                             render=False,
-                                             iters=20,
-                                             deterministic=True)
+                val_sim = evaluate_policy_on_env(test_sim_env,
+                                                 gatworld.target_policy,
+                                                 render=False,
+                                                 iters=20,
+                                                 deterministic=True)
 
-                with open(expt_path + "/output.txt", "a") as txt_file:
-                    print(val, file=txt_file)
+                val_det = evaluate_policy_on_env(test_env,
+                                                 gatworld.target_policy,
+                                                 render=False,
+                                                 iters=20,
+                                                 deterministic=True)
+                #
+                # with open(expt_path + "/output.txt", "a") as txt_file:
+                #     print(val, file=txt_file)
 
-                val = evaluate_policy_on_env(test_env,
-                                             gatworld.target_policy,
-                                             render=False,
-                                             iters=20,
-                                             deterministic=False)
-
-                with open(expt_path + "/stochastic_output.txt", "a") as txt_file:
-                    print(val, file=txt_file)
+                val_stochastic = evaluate_policy_on_env(test_env,
+                                                        gatworld.target_policy,
+                                                        render=False,
+                                                        iters=20,
+                                                        deterministic=False)
+                print('grounding step :{}, sim_env_det:{},real_env_det:{},real_env_stochastic:{}'.format(grounding_step,
+                                                                                                         val_sim,
+                                                                                                         val_det,
+                                                                                                         val_stochastic))
+                # with open(expt_path + "/stochastic_output.txt", "a") as txt_file:
+                #     print(val, file=txt_file)
             except Exception as e:
                 cprint(e, 'red')
 
