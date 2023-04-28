@@ -698,7 +698,7 @@ def train_model_es(model,
                 best_loss = valid_loss
                 torch.save(model.state_dict(), checkpoint_name + '.pt')
             print('current best:', best_loss, '(epoch', best_epoch, ')')
-    print('\ntraining loss:', train_loss)
+    # print('\ntraining loss:', train_loss)
 
     if dump_loss_to_file:
         with open(expt_path + '/disc_loss.txt', "a") as txt_file:

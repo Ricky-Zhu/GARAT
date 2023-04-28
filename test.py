@@ -30,6 +30,7 @@ from stable_baselines.common.vec_env import DummyVecEnv, VecNormalize
 import torch
 import random
 from rl_gat.envs import *
+from tqdm import tqdm
 
 torch.backends.cudnn.deterministic = True
 
@@ -143,7 +144,7 @@ def main():
                         help="Set this only if using TRPO for the action transformer policy")
     parser.add_argument('--clip_range', default=0.1, type=float,
                         help="PPO objective clipping factor -> Action transformer policy")
-    parser.add_argument('--plot', action='store_true',
+    parser.add_argument('--plot', action='store_false',
                         help="visualize the action transformer policy - works well only for simple environments")
     parser.add_argument('--tensorboard', action='store_true', help="visualize training in tensorboard")
     parser.add_argument('--save_atp', action='store_true', help="Saves the action transformer policy")
@@ -299,8 +300,8 @@ def main():
                                    )
 
         # ground the environment
-        for ii in range(args.n_iters_atp):
-            print('################### GROUNDING INNER ITERATION : ', ii, ' ###################')
+        print('enter grounding inner loop for grounding step {}....'.format(grounding_step))
+        for ii in tqdm(range(args.n_iters_atp)):
             for _ in range(args.discriminator_epochs):
                 gatworld.train_discriminator(iter_step=ii,
                                              grounding_step=grounding_step,
@@ -373,7 +374,7 @@ def main():
                                                         render=False,
                                                         iters=20,
                                                         deterministic=False)
-                print('grounding step :{}, sim_env_det:{},real_env_det:{},real_env_stochastic:{}'.format(grounding_step,
+                print('grounding step : {}, sim_env_det:{},real_env_det:{},real_env_stochastic:{}'.format(grounding_step,
                                                                                                          val_sim,
                                                                                                          val_det,
                                                                                                          val_stochastic))

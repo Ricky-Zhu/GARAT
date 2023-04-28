@@ -5,8 +5,7 @@ python test.py \
   --target_policy_algo "TRPO" \
   --action_tf_policy_algo "PPO2" \
   --load_policy_path "data/models/TRPO_initial_policy_steps_"$sim_env"_2000000_.pkl" \
-  --alpha 1.0 \
-  --n_trainsteps_target_policy 100000 \
+  --n_trainsteps_target_policy 1000000 \
   --num_cores 1 \
   --sim_env $sim_env \
   --real_env $real_env \
@@ -21,7 +20,7 @@ python test.py \
   --gsim_trans 5000 \
   --ent_coeff 0.01 \
   --max_kl 3e-4 \
-  --clip_range 0.1 \
+  --clip_range 0.2 \
   --loss_function "GAIL" \
   --eval \
   --disc_lr 3e-3 \
@@ -31,7 +30,7 @@ python test.py \
   --compute_grad_penalty \
   --single_batch_size 512 \
   --namespace "CODE_SUBMIT_" \
-  --deterministic 0 \
-  --n_iters_atp 100 &
+  --deterministic 1 \
+  --n_iters_atp 50 &
   wait
   echo " ~~~ Experiment Completed :) ~~"

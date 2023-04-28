@@ -413,7 +413,7 @@ class GroundedEnv(gym.ActionWrapper):
         delta_transformed_action, _ = self.action_tf_policy.predict(concat_sa, deterministic=self.use_deterministic)
 
         # NEW : experimenting with adding noise here
-        delta_transformed_action += np.random.normal(0, self.atp_policy_noise ** 0.5, delta_transformed_action.shape[0])
+        # delta_transformed_action += np.random.normal(0, self.atp_policy_noise ** 0.5, delta_transformed_action.shape[0])
 
         # print('delta : ',delta_transformed_action)
 
@@ -1030,7 +1030,7 @@ class ReinforcedGAT:
 
         if num_epochs is not None:
             time_steps = self.gsim_trans * num_epochs
-        print('TRAINING ACTION TRANSFORMER POLICY FOR ', time_steps, ' TIMESTEPS')
+        # print('TRAINING ACTION TRANSFORMER POLICY FOR ', time_steps, ' TIMESTEPS')
 
         # refresh the discriminator in the ATP Env as the discriminator been trained
         self.atp_environment.env_method("refresh_disc",
@@ -1179,7 +1179,7 @@ class ReinforcedGAT:
             add_noise=0.0,
             limit_trans_count=5000 if single_batch_test else int(self.real_trans),  # -int(self.gsim_trans),
             max_timesteps=self.max_real_traj_length[0],
-            deterministic=False,  # TODO: check here whether need to be set as deterministic
+            deterministic=True,  # TODO: check here whether need to be set as deterministic
         )
 
         # print('LENGTH OF FIRST TRAJECTORY : ', len(fake_Ts[0]))
