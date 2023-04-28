@@ -94,10 +94,10 @@ def evaluate_policy_on_env(env,
 
         if not i % 15: print('Iteration ', i, ' done.')
         return_list.append(return_val)
-    print('***** STATS FOR THIS RUN *****')
-    print('MEAN : ', np.mean(return_list))
-    print('STD : ', np.std(return_list))
-    print('******************************')
+    # print('***** STATS FOR THIS RUN *****')
+    # print('MEAN : ', np.mean(return_list))
+    # print('STD : ', np.std(return_list))
+    # print('******************************')
     return np.mean(return_list), np.std(return_list) / np.sqrt(len(return_list))
 
 
@@ -134,7 +134,7 @@ def main():
     parser.add_argument('--real_trans', default=50, type=int, help="amount of real world transitions used")
     parser.add_argument('--gsim_trans', default=50, type=int, help="amount of simulator transitions used")
     parser.add_argument('--debug', action='store_true', help="DEPRECATED")
-    parser.add_argument('--eval', action='store_false',
+    parser.add_argument('--eval', action='store_true',
                         help="set to true to evaluate the agent policy in the real environment, after training in grounded environment")
     parser.add_argument('--use_cuda', action='store_true', help="DEPRECATED. Not using CUDA")
     parser.add_argument('--instance_noise', action='store_true', help="DEPRECATED. Not using instance noise")
@@ -144,7 +144,7 @@ def main():
                         help="Set this only if using TRPO for the action transformer policy")
     parser.add_argument('--clip_range', default=0.1, type=float,
                         help="PPO objective clipping factor -> Action transformer policy")
-    parser.add_argument('--plot', action='store_false',
+    parser.add_argument('--plot', action='store_true',
                         help="visualize the action transformer policy - works well only for simple environments")
     parser.add_argument('--tensorboard', action='store_true', help="visualize training in tensorboard")
     parser.add_argument('--save_atp', action='store_true', help="Saves the action transformer policy")

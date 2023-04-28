@@ -13,7 +13,7 @@ python test.py \
   --expt_number 1 \
   --n_grounding_steps 5 \
   --discriminator_epochs 1 \
-  --generator_epochs 50 \
+  --generator_epochs 1 \
   --real_trajs 1000 \
   --sim_trajs 1000 \
   --real_trans 5000 \
@@ -32,5 +32,4 @@ python test.py \
   --namespace "CODE_SUBMIT_" \
   --deterministic 1 \
   --n_iters_atp 50 &
-  wait
-  echo " ~~~ Experiment Completed :) ~~"
+
