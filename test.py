@@ -31,6 +31,7 @@ import torch
 import random
 from rl_gat.envs import *
 from tqdm import tqdm
+from datetime import datetime
 
 torch.backends.cudnn.deterministic = True
 
@@ -189,10 +190,8 @@ def main():
         raise ValueError('Cannot have both args dont_reset and reset_disc_only. Choose one.')
 
     expt_type = 'sim2sim' if args.sim_env == args.real_env else 'sim2real'
-    expt_label = args.namespace + args.loss_function + '_' + expt_type + '_' + args.target_policy_algo + '_' + str(
-        args.n_trainsteps_target_policy) + '_' + str(args.real_trans) + '_' + str(args.n_iters_atp) + '_' + str(
-        args.expt_number)
-
+    current_date = datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
+    expt_label = args.namespace + '_' + str(args.real_env) + '_' + str(args.sim_env) + '-' + current_date
     # create the experiment folder
     expt_path = 'data/models/garat/' + expt_label
     expt_already_running = False
@@ -220,18 +219,18 @@ def main():
 
     # first see the performance descrepency of load policy in the source env and the target env
     cprint('first check if there are performance descrepency', 'red', 'on_green')
-    print('show the result of the source env')
-    val = evaluate_policy_on_env(gym.make(args.sim_env),
-                                 gatworld.target_policy,
-                                 render=False,
-                                 iters=20,
-                                 deterministic=True)
-    print('show the result of the target env')
-    val = evaluate_policy_on_env(gym.make(args.real_env),
-                                 gatworld.target_policy,
-                                 render=False,
-                                 iters=20,
-                                 deterministic=True)
+    val_first_sim = evaluate_policy_on_env(gym.make(args.sim_env),
+                                           gatworld.target_policy,
+                                           render=False,
+                                           iters=20,
+                                           deterministic=True)
+    val_first_target = evaluate_policy_on_env(gym.make(args.real_env),
+                                              gatworld.target_policy,
+                                              render=False,
+                                              iters=20,
+                                              deterministic=True)
+    cprint('the initial agent policy performance {} on source env, {} on target env'.format(val_first_sim,
+                                                                                            val_first_target), 'green')
 
     # checkpointing logic ~~ necessary when deploying script on Condor cluster
     if os.path.exists(expt_path):
@@ -374,10 +373,11 @@ def main():
                                                         render=False,
                                                         iters=20,
                                                         deterministic=False)
-                print('grounding step : {}, sim_env_det:{},real_env_det:{},real_env_stochastic:{}'.format(grounding_step,
-                                                                                                         val_sim,
-                                                                                                         val_det,
-                                                                                                         val_stochastic))
+                print(
+                    'grounding step : {}, sim_env_det:{},real_env_det:{},real_env_stochastic:{}'.format(grounding_step,
+                                                                                                        val_sim,
+                                                                                                        val_det,
+                                                                                                        val_stochastic))
                 # with open(expt_path + "/stochastic_output.txt", "a") as txt_file:
                 #     print(val, file=txt_file)
             except Exception as e:
