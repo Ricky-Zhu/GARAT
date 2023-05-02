@@ -113,6 +113,7 @@ def train_initial_policy(
         algo=ALGO,
         env_name=ENV_NAME,
         modified_env_name=MODIFIED_ENV_NAME,
+        args_env_name = ENV_NAME,
         time_steps=TIME_STEPS):
     """Uses the specified algorithm on the target environment"""
     print("Using algorithm : ", algo.__name__)
@@ -127,7 +128,7 @@ def train_initial_policy(
     # loading the args for different envs
     with open('data/target_policy_params.yaml') as file:
         args = yaml.load(file, Loader=yaml.FullLoader)
-    args = args[algo.__name__][env_name]
+    args = args[algo.__name__][args_env_name]
 
 
     if algo.__name__ == "SAC":
@@ -267,8 +268,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         description='train initial policy in the default env and evaluate on also the modified env')
-    parser.add_argument('--env_name', default='HalfCheetah-v2', type=str, help='the source env')
-    parser.add_argument('--modified_env_name', default='HalfCheetahModified-v2', type=str, help='the target env')
+    parser.add_argument('--env_name', default='HalfCheetahModified-v2', type=str, help='the source env')
+    parser.add_argument('--args_env_name', default='HalfCheetah-v2', type=str, help='the env args is selected for')
+    parser.add_argument('--modified_env_name', default='HalfCheetah-v2', type=str, help='the target env')
 
     args = parser.parse_args()
     model_name = create_model_name(env_name=args.env_name)
