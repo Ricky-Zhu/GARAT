@@ -287,10 +287,12 @@ if __name__ == '__main__':
     parser.add_argument('--env_name', default='HalfCheetah-v2', type=str, help='the source env')
     parser.add_argument('--args_env_name', default='HalfCheetah-v2', type=str, help='the env args is selected for')
     parser.add_argument('--modified_env_name', default='HalfCheetahModified-v2', type=str, help='the target env')
+    parser.add_argument('--time_steps', default=5000000, type=int, help='total time steps to learn')
 
     args = parser.parse_args()
     model_name = create_model_name(env_name=args.env_name)
     train_initial_policy(model_name=model_name,
                          env_name=args.env_name,
                          modified_env_name=args.modified_env_name,
-                         args_env_name=args.args_env_name)
+                         args_env_name=args.args_env_name,
+                         time_steps=args.time_steps)
