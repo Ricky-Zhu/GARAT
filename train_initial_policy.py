@@ -29,6 +29,7 @@ from stable_baselines.common.callbacks import EvalCallback
 import numpy as np
 import yaml, shutil
 import sys
+import random
 
 sys.path.append('rl_gat')
 from rl_gat.envs import *
@@ -37,7 +38,7 @@ ALGO = TRPO
 # set the environment here :
 ENV_NAME = 'Hopper-v2'
 MODIFIED_ENV_NAME = 'HopperModified-v2'
-TIME_STEPS = 5000000
+TIME_STEPS = 2500000
 NOISE_VALUE = 0.0
 SAVE_BEST_FOR_20 = False
 MUJOCO_NORMALIZE = False
@@ -86,15 +87,19 @@ def evaluate_policy_on_env(env,
                            model,
                            render=True,
                            iters=1,
-                           deterministic=True
+                           deterministic=True,
+                           save_the_optim_traj_states=False
                            ):
     # model.set_env(env)
     return_list = []
+    state_visit = []
     for i in range(iters):
         return_val = 0
         done = False
         obs = env.reset()
         while not done:
+            if save_the_optim_traj_states:
+                state_visit.append(obs)
             action, _state = model.predict(obs, deterministic=deterministic)
             obs, rewards, done, info = env.step(action)
             return_val += rewards
@@ -104,11 +109,17 @@ def evaluate_policy_on_env(env,
 
         if not i % 15: print('Iteration ', i, ' done.')
         return_list.append(return_val)
+    # sample 2000 data points to represent state visitation
+    if save_the_optim_traj_states:
+        state_visit_to_save = random.sample(state_visit, k=2000)
     print('***** STATS FOR THIS RUN *****')
     print('MEAN : ', np.mean(return_list))
     print('STD : ', np.std(return_list))
     print('******************************')
-    return np.mean(return_list), np.std(return_list) / np.sqrt(len(return_list))
+    if save_the_optim_traj_states:
+        return np.mean(return_list), np.std(return_list) / np.sqrt(len(return_list)), state_visit_to_save
+    else:
+        return np.mean(return_list), np.std(return_list) / np.sqrt(len(return_list))
 
 
 def train_initial_policy(
@@ -247,7 +258,11 @@ def train_initial_policy(
                     log_interval=10, )
         model.save(model_name)
         print('--------------' + env_name + '----------------')
-        evaluate_policy_on_env(env, model, render=False, iters=10)
+        optim_state_visit = evaluate_policy_on_env(env, model, render=False, iters=10, save_the_optim_traj_states=True)[
+            -1]
+        # save the optim state visit
+        optim_state_visit = np.asarray(optim_state_visit)
+        np.save('data/optim_state_visit_{}_{}.npy'.format(env_name, TIME_STEPS), optim_state_visit)
         # then evaluate the trained policy in the source domain to the modified env to see the performance desprepency
         env_modified = DummyVecEnv([lambda: gym.make(modified_env_name)])
         print('--------------' + modified_env_name + '----------------')
@@ -269,9 +284,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         description='train initial policy in the default env and evaluate on also the modified env')
-    parser.add_argument('--env_name', default='HalfCheetahModified-v2', type=str, help='the source env')
+    parser.add_argument('--env_name', default='HalfCheetah-v2', type=str, help='the source env')
     parser.add_argument('--args_env_name', default='HalfCheetah-v2', type=str, help='the env args is selected for')
-    parser.add_argument('--modified_env_name', default='HalfCheetah-v2', type=str, help='the target env')
+    parser.add_argument('--modified_env_name', default='HalfCheetahModified-v2', type=str, help='the target env')
 
     args = parser.parse_args()
     model_name = create_model_name(env_name=args.env_name)
