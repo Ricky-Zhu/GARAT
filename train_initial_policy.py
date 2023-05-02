@@ -3,18 +3,21 @@ import gym
 
 # Filter tensorflow version warnings
 import os
+
 # https://stackoverflow.com/questions/40426502/is-there-a-way-to-suppress-the-messages-tensorflow-prints/40426709
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 import warnings
+
 # https://stackoverflow.com/questions/15777951/how-to-suppress-pandas-future-warning
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=Warning)
 import tensorflow as tf
+
 tf.get_logger().setLevel('INFO')
 tf.autograph.set_verbosity(0)
 import logging
-tf.get_logger().setLevel(logging.ERROR)
 
+tf.get_logger().setLevel(logging.ERROR)
 
 from stable_baselines.common.policies import MlpPolicy as mlp_standard
 from stable_baselines.sac.policies import FeedForwardPolicy as ffp_sac
@@ -34,7 +37,7 @@ ALGO = TRPO
 # set the environment here :
 ENV_NAME = 'Hopper-v2'
 MODIFIED_ENV_NAME = 'HopperModified-v2'
-TIME_STEPS = 2500000
+TIME_STEPS = 5000000
 NOISE_VALUE = 0.0
 SAVE_BEST_FOR_20 = False
 MUJOCO_NORMALIZE = False
@@ -113,7 +116,7 @@ def train_initial_policy(
         algo=ALGO,
         env_name=ENV_NAME,
         modified_env_name=MODIFIED_ENV_NAME,
-        args_env_name = ENV_NAME,
+        args_env_name=ENV_NAME,
         time_steps=TIME_STEPS):
     """Uses the specified algorithm on the target environment"""
     print("Using algorithm : ", algo.__name__)
@@ -122,14 +125,12 @@ def train_initial_policy(
     # define the environment here
     env = gym.make(env_name)
 
-
     env = DummyVecEnv([lambda: env])
 
     # loading the args for different envs
     with open('data/target_policy_params.yaml') as file:
         args = yaml.load(file, Loader=yaml.FullLoader)
     args = args[algo.__name__][args_env_name]
-
 
     if algo.__name__ == "SAC":
 
@@ -276,4 +277,5 @@ if __name__ == '__main__':
     model_name = create_model_name(env_name=args.env_name)
     train_initial_policy(model_name=model_name,
                          env_name=args.env_name,
-                         modified_env_name=args.modified_env_name)
+                         modified_env_name=args.modified_env_name,
+                         args_env_name=args.args_env_name)
