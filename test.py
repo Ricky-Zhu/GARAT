@@ -78,14 +78,18 @@ def evaluate_policy_on_env(env,
                            render=True,
                            iters=1,
                            deterministic=True,
+                           save_the_optim_traj_states=False
                            ):
     # model.set_env(env)
     return_list = []
+    state_visit = []
     for i in range(iters):
         return_val = 0
         done = False
         obs = env.reset()
         while not done:
+            if save_the_optim_traj_states:
+                state_visit.append(obs)
             action, _state = model.predict(obs, deterministic=deterministic)
             obs, rewards, done, info = env.step(action)
             return_val += rewards
@@ -95,11 +99,13 @@ def evaluate_policy_on_env(env,
 
         if not i % 15: print('Iteration ', i, ' done.')
         return_list.append(return_val)
-    # print('***** STATS FOR THIS RUN *****')
-    # print('MEAN : ', np.mean(return_list))
-    # print('STD : ', np.std(return_list))
-    # print('******************************')
-    return np.mean(return_list), np.std(return_list) / np.sqrt(len(return_list))
+    # sample 2000 data points to represent state visitation
+    if save_the_optim_traj_states:
+        state_visit_to_save = random.sample(state_visit, k=2000)
+    if save_the_optim_traj_states:
+        return np.mean(return_list), np.std(return_list) / np.sqrt(len(return_list)), state_visit_to_save
+    else:
+        return np.mean(return_list), np.std(return_list) / np.sqrt(len(return_list))
 
 
 def main():
@@ -109,11 +115,11 @@ def main():
     parser.add_argument('--action_tf_policy_algo', default="PPO2", type=str,
                         help="name in str of the Action Transformer policy training algorithm")
     parser.add_argument('--load_policy_path',
-                        default='data/models/TRPO_initial_policy_steps_HalfCheetah-v2_2000000_.pkl',
+                        default='data/models/TRPO_initial_policy_steps_HalfCheetah-v2_2500000_.pkl',
                         help="relative path of initial policy trained in sim")
     parser.add_argument('--alpha', default=1.0, type=float, help="Deprecated feature. Ignore")
     parser.add_argument('--beta', default=1.0, type=float, help="Deprecated feature. Ignore")
-    parser.add_argument('--n_trainsteps_target_policy', default=10000, type=int,
+    parser.add_argument('--n_trainsteps_target_policy', default=1000, type=int,
                         help="Number of time steps to train the agent policy in the grounded environment")
     parser.add_argument('--n_trainsteps_action_tf_policy', default=1000000, type=int,
                         help="Timesteps to train the Action Transformer policy in the ATPEnvironment")
@@ -135,7 +141,7 @@ def main():
     parser.add_argument('--real_trans', default=50, type=int, help="amount of real world transitions used")
     parser.add_argument('--gsim_trans', default=50, type=int, help="amount of simulator transitions used")
     parser.add_argument('--debug', action='store_true', help="DEPRECATED")
-    parser.add_argument('--eval', action='store_true',
+    parser.add_argument('--eval', action='store_false',
                         help="set to true to evaluate the agent policy in the real environment, after training in grounded environment")
     parser.add_argument('--use_cuda', action='store_true', help="DEPRECATED. Not using CUDA")
     parser.add_argument('--instance_noise', action='store_true', help="DEPRECATED. Not using instance noise")
@@ -359,14 +365,18 @@ def main():
                                                  iters=20,
                                                  deterministic=True)
 
-                val_det = evaluate_policy_on_env(test_env,
-                                                 gatworld.target_policy,
-                                                 render=False,
-                                                 iters=20,
-                                                 deterministic=True)
-                #
-                # with open(expt_path + "/output.txt", "a") as txt_file:
-                #     print(val, file=txt_file)
+                # evaluate the target agent policy in the target env determinsticly and stochasticly
+
+                *val_det, state_to_save = evaluate_policy_on_env(test_env,
+                                                                 gatworld.target_policy,
+                                                                 render=False,
+                                                                 iters=20,
+                                                                 deterministic=True,
+                                                                 save_the_optim_traj_states=True)
+
+                # save the state
+                state_to_save = np.asarray(state_to_save)
+                np.save(expt_path + '/state_visit_grounding_step_{}.npy'.format(grounding_step), state_to_save)
 
                 val_stochastic = evaluate_policy_on_env(test_env,
                                                         gatworld.target_policy,
@@ -382,61 +392,6 @@ def main():
                 #     print(val, file=txt_file)
             except Exception as e:
                 cprint(e, 'red')
-
-    # expt done, now get the green and red lines
-    # if args.eval:
-    #     # green line
-    #     cprint('**~~vv^^ GETTING GREEN AND RED LINES ^^vv~~**', 'red', 'on_green')
-    #     test_env = gym.make(args.real_env)
-    #     if 'mujoco_norm' in args.load_policy_path:
-    #         test_env = MujocoNormalized(test_env)
-    #     elif 'normalized' in args.load_policy_path:
-    #         test_env = DummyVecEnv([lambda: test_env])
-    #         test_env = VecNormalize.load('data/models/env_stats/' + args.sim_env + '.pkl',
-    #                                      venv=test_env)
-    #
-    #     sim_policy = 'data/models/' + args.target_policy_algo + '_initial_policy_steps_' + args.sim_env + '_1000000_.pkl'
-    #     real_policy = 'data/models/' + args.target_policy_algo + '_initial_policy_steps_' + args.real_env + '_1000000_.pkl'
-    #
-    #     if 'HalfCheetah' in args.load_policy_path or 'Reacher' in args.load_policy_path:
-    #         sim_policy = sim_policy.replace('1000000_.pkl', '2000000_.pkl')
-    #         real_policy = real_policy.replace('1000000_.pkl', '2000000_.pkl')
-    #
-    #     if 'mujoco_norm' in args.load_policy_path:
-    #         sim_policy = sim_policy.replace('1000000_.pkl', '2000000_mujoco_norm_.pkl')
-    #         real_policy = real_policy.replace('1000000_.pkl', '2000000_mujoco_norm_.pkl')
-    #
-    #     elif 'normalized' in args.load_policy_path:
-    #         sim_policy = sim_policy.replace('1000000_.pkl', '1000000_normalized_.pkl')
-    #         real_policy = real_policy.replace('1000000_.pkl', '1000000_normalized_.pkl')
-    #
-    #     if args.target_policy_algo == 'PPO2':
-    #         algo = PPO2
-    #     elif args.target_policy_algo == 'TRPO':
-    #         algo = TRPO
-    #
-    #     val = evaluate_policy_on_env(test_env,
-    #                                  algo.load(sim_policy),
-    #                                  render=False,
-    #                                  iters=10,
-    #                                  deterministic=True)
-    #     with open(expt_path + "/green_red.txt", "a") as txt_file:
-    #         print(val, file=txt_file)
-    #
-    #     # red line
-    #     del algo  # remove the old algo and reload it.
-    #     if args.target_policy_algo == 'PPO2':
-    #         algo = PPO2
-    #     elif args.target_policy_algo == 'TRPO':
-    #         algo = TRPO
-    #
-    #     val = evaluate_policy_on_env(test_env,
-    #                                  algo.load(real_policy),
-    #                                  render=False,
-    #                                  iters=10,
-    #                                  deterministic=True)
-    #     with open(expt_path + "/green_red.txt", "a") as txt_file:
-    #         print(val, file=txt_file)
 
     os._exit(0)
 

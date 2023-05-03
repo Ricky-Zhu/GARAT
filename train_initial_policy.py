@@ -50,13 +50,14 @@ if not os.path.exists('scripts/data/models/'):
 
 
 # define the model name for creating folders and saving the models
-def create_model_name(env_name):
+def create_model_name(env_name,
+                      time_steps):
     if SAVE_BEST_FOR_20:
         model_name = "data/models/" + ALGO.__name__ + "_initial_policy_steps_" + env_name + "_" + str(
-            TIME_STEPS) + "_best_.pkl"
+            time_steps) + "_best_.pkl"
     else:
         model_name = "data/models/" + ALGO.__name__ + "_initial_policy_steps_" + env_name + "_" + str(
-            TIME_STEPS) + "_.pkl"
+            time_steps) + "_.pkl"
     return model_name
 
 
@@ -290,7 +291,8 @@ if __name__ == '__main__':
     parser.add_argument('--time_steps', default=5000000, type=int, help='total time steps to learn')
 
     args = parser.parse_args()
-    model_name = create_model_name(env_name=args.env_name)
+    model_name = create_model_name(env_name=args.env_name,
+                                   time_steps=args.time_steps)
     train_initial_policy(model_name=model_name,
                          env_name=args.env_name,
                          modified_env_name=args.modified_env_name,

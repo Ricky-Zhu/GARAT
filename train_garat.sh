@@ -4,7 +4,7 @@ real_env="HalfCheetahModified-v2"
 python test.py \
   --target_policy_algo "TRPO" \
   --action_tf_policy_algo "PPO2" \
-  --load_policy_path "data/models/TRPO_initial_policy_steps_"$sim_env"_2000000_.pkl" \
+  --load_policy_path "data/models/TRPO_initial_policy_steps_"$sim_env"_2500000_.pkl" \
   --n_trainsteps_target_policy 1000000 \
   --num_cores 1 \
   --sim_env $sim_env \
@@ -29,7 +29,7 @@ python test.py \
   --noptepochs 1 \
   --compute_grad_penalty \
   --single_batch_size 512 \
-  --namespace "CODE_SUBMIT_" \
+  --namespace "state_visitation_evaluate_" \
   --deterministic 1 \
   --n_iters_atp 50 &
 
