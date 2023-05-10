@@ -1,7 +1,7 @@
-sim_env="HalfCheetah-v2"
-real_env="HalfCheetahModified-v2"
+sim_env="Walker2d-v2"
+real_env="Walker2dMassModified-v2"
 
-python test.py \
+python trainer.py \
   --target_policy_algo "TRPO" \
   --action_tf_policy_algo "PPO2" \
   --load_policy_path "data/models/TRPO_initial_policy_steps_"$sim_env"_2500000_.pkl" \
@@ -29,7 +29,7 @@ python test.py \
   --noptepochs 1 \
   --compute_grad_penalty \
   --single_batch_size 512 \
-  --namespace "state_visitation_evaluate_" \
+  --namespace "garat_walker" \
   --deterministic 1 \
   --n_iters_atp 50 &
 
