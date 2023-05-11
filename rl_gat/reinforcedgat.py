@@ -288,23 +288,6 @@ class ATPEnv(gym.Wrapper):
         else:
             disc_rew = 0.0
 
-        # # run forward model only if beta <1.0
-        # if self.beta < 1.0:
-        #     # fwd model reward
-        #     concat_ps_a = np.concatenate((self.latest_obs,
-        #                                   self.latest_act))
-        #     concat_ps_a = apply_norm(concat_ps_a,
-        #                              self.fwd_norm[0])
-        #     concat_ps_a = torch.tensor(concat_ps_a).float().to(self.device)
-        #     pred_delta_next_state = self.fwd_model(concat_ps_a)
-        #     pred_delta_next_state = pred_delta_next_state.detach().to(self.device).numpy()
-        #     pred_delta_next_state = unapply_norm(pred_delta_next_state,
-        #                                          self.fwd_norm[1])
-        #     pred_next_state = pred_delta_next_state + self.latest_obs
-        #     fwd_rew = -1*np.sum((pred_next_state-sim_next_state)**2)
-        # else:
-        #     fwd_rew = 0.0
-
         self.latest_obs = sim_next_state
         self.latest_act = target_policy_action
 
@@ -543,15 +526,14 @@ class ReinforcedGAT:
                  load_policy=None,
                  algo="TRPO",
                  atp_algo="TRPO",
-                 debug=False,
-                 real_trajs=50,
-                 sim_trajs=50,
                  use_cuda=False,
                  real_trans=50000,
                  gsim_trans=50000,
+                 beta=1.0,
                  tensorboard=False,
                  atp_loss_function='GAIL',
                  single_batch_size=None,
+                 deterministic_sample_collecting=False,
                  ):
 
         self.single_batch_size = single_batch_size
@@ -568,20 +550,15 @@ class ReinforcedGAT:
 
         # create folder to save all the plots and the models
         self.expt_path = expt_path
-
-        # Number of trajectories to collect on 'real' environment
-        self.NUM_REAL_WORLD_TRAJECTORIES = 20 if debug else real_trajs
-        # Number of trajectories to collect on simulated environment
-        self.NUM_SIM_WORLD_TRAJECTORIES = 20 if debug else sim_trajs
-        # instead use num of transitions from real and sim ;)
         self.real_trans = real_trans
         self.gsim_trans = gsim_trans
-
         self.env_name = sim_env_name
         self.real_env_name = real_env_name
         self.frames = frames
         self.num_cores = num_cores
         self.num_rl_threads = num_rl_threads
+        self.deterministic_sample_collecting = deterministic_sample_collecting
+        self.beta = beta
 
         # using custom mujoco normalization scheme
         # which in the experiment is not used
@@ -685,7 +662,7 @@ class ReinforcedGAT:
                 raise NotImplementedError("Algo " + algo + " not supported")
         else:
             print('LOADING -PRETRAINED- INITIAL POLICY')
-            with open('data/target_policy_params.yaml') as file:
+            with open('../data/target_policy_params.yaml') as file:
                 args = yaml.load(file, Loader=yaml.FullLoader)
 
             if 'normalize' in load_policy:
@@ -846,7 +823,7 @@ class ReinforcedGAT:
                                       target_policy=self.target_policy,
                                       discriminator=self.discriminator,
                                       fwd_model=None,
-                                      beta=1.0,
+                                      beta=self.beta,
                                       device=self.device,
                                       train_noise=0.0,
                                       loss=atp_loss_function,
@@ -857,8 +834,6 @@ class ReinforcedGAT:
                                       )
 
         self.atp_environment = DummyVecEnv([lambda: self.atp_environment])
-        # self.atp_environment = VecNormalize(self.atp_environment, training=True, norm_obs=True,
-        #                                     norm_reward=False)
 
         if algo == "TD3":
             n_actions = self.atp_environment.action_space.shape[-1]
@@ -894,21 +869,11 @@ class ReinforcedGAT:
                 cg_iters=1
             )
         elif algo == "PPO2":
-            class CustomPPO2Policy(FeedForwardPolicy):
-                def __init__(self, *args, **kwargs):
-                    super(CustomPPO2Policy, self).__init__(*args, **kwargs,
-                                                           net_arch=[dict(pi=[64, 64],
-                                                                          vf=[64, 64])],
-                                                           feature_extraction="mlp")
-
-            # cprint('SINGLE BATCH SIZE : ' + str(self.single_batch_size), 'red', attrs=['blink'])
             self.action_tf_policy = PPO2(
                 policy=OtherMlpPolicy,
-                # policy = CustomPPO2Policy,
                 env=DummyVecEnv([lambda: self.atp_environment]),
                 nminibatches=nminibatches,
                 n_steps=self.gsim_trans if self.single_batch_size is None else 5000,
-                # nminibatches*self.single_batch_size,
                 ent_coef=ent_coeff,
                 noptepochs=noptepochs,
                 lam=0.95,
@@ -1021,7 +986,6 @@ class ReinforcedGAT:
         grnd_env.close()
 
     def train_action_transformer_policy(self,
-                                        beta=0.0,
                                         time_steps=5000,
                                         num_epochs=None,
                                         loss_function='GAIL',
@@ -1047,16 +1011,14 @@ class ReinforcedGAT:
         # pylint: disable=unexpected-keyword-arg
         self.action_tf_policy.learn(total_timesteps=time_steps if not single_batch_test else 5000,
                                     # 2*self.single_batch_size,
-                                    reset_num_timesteps=False)
+                                    reset_num_timesteps=True)
 
     def collect_experience_from_real_env(
-            self,
-            num_real_traj=None):
+            self):
         """
         Collects real world experience by deploying target policy on real
         environment
         """
-        if num_real_traj is None: num_real_traj = self.NUM_REAL_WORLD_TRAJECTORIES
         print('COLLECTING REAL WORLD TRAJECTORIES')
         # without noise
         # make normalized real env
@@ -1073,22 +1035,17 @@ class ReinforcedGAT:
                 real_env_for_data_collection = DummyVecEnv([lambda: real_env_for_data_collection])
             else:
                 real_env_for_data_collection = self.real_env
-            # real_env_for_data_collection = self.real_env
 
         real_Ts = collect_gym_trajectories(env=real_env_for_data_collection,
                                            policy=self.target_policy,
+                                           # TODO: separate the collecting policy and the agent policy
                                            limit_trans_count=int(self.real_trans),
-                                           num=None,
                                            add_noise=0.0,  # TODO: check whether add noise will help
-                                           deterministic=False,
+                                           deterministic=self.deterministic_sample_collecting,
                                            )
 
-        self.avg_real_traj_length = [np.average([len(real_Ts[z]) for z in range(len(real_Ts))])]
-        self.max_real_traj_length = [np.max([len(real_Ts[z]) for z in range(len(real_Ts))])]
-
-        # print('LENGTH OF FIRST TRAJECTORY : ', len(real_Ts[0]))
-        # print('AVERAGE LENGTH OF TRAJECTORY : ', self.avg_real_traj_length)
-        # print('MAX LENGTH OF TRAJECTORY : ', self.max_real_traj_length)
+        # self.avg_real_traj_length = [np.average([len(real_Ts[z]) for z in range(len(real_Ts))])]
+        # self.max_real_traj_length = [np.max([len(real_Ts[z]) for z in range(len(real_Ts))])]
 
         X_list, Y_list = [], []
         for T in real_Ts:  # For each trajectory:
@@ -1113,22 +1070,17 @@ class ReinforcedGAT:
     def train_discriminator(self,
                             iter_step,
                             grounding_step,
-                            num_sim_traj=None,
                             num_epochs=MAX_EPOCHS,
-                            inject_instance_noise=False,
                             compute_grad_penalty=True,
                             nminibatches=4,
                             single_batch_test=False,
-                            debug_discriminator=True,
+                            debug_discriminator=False,
                             ):
         """
         Trains the discriminator function that classifies real and fake
         trajectories
         """
 
-        # if compute_grad_penalty: cprint('COMPUTING GRAD PENALTY', 'yellow', attrs=['blink'])
-
-        if num_sim_traj is None: num_sim_traj = self.NUM_SIM_WORLD_TRAJECTORIES
         X_list = []  # previous states + action + next state
         Y_list = []  # label for the trajectory : real:[1] / fake:[0]
 
@@ -1158,8 +1110,6 @@ class ReinforcedGAT:
         else:
             env = gym.make(self.env_name)
             if self.mujoco_norm: env = MujocoNormalized(env)
-        # env = gym.make(self.env_name)
-        # if self.mujoco_norm: env = MujocoNormalized(env)
 
         grnd_env = GroundedEnv(env=env,
                                action_tf_policy=self.action_tf_policy,
@@ -1175,11 +1125,10 @@ class ReinforcedGAT:
         fake_Ts = collect_gym_trajectories(
             env=grnd_env,
             policy=self.target_policy,
-            num=int(num_sim_traj),
             add_noise=0.0,
             limit_trans_count=5000 if single_batch_test else int(self.real_trans),  # -int(self.gsim_trans),
-            max_timesteps=self.max_real_traj_length[0],
-            deterministic=True,  # TODO: check here whether need to be set as deterministic
+            deterministic=self.deterministic_sample_collecting,
+            # TODO: check here whether need to be set as deterministic
         )
 
         # print('LENGTH OF FIRST TRAJECTORY : ', len(fake_Ts[0]))

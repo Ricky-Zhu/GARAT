@@ -385,7 +385,6 @@ class GroundedEnv(gym.ActionWrapper):
 def collect_gym_trajectories(
         env,
         policy,
-        num,
         max_timesteps=10000,
         collect_rew=False,
         add_noise=0.0,
@@ -397,8 +396,6 @@ def collect_gym_trajectories(
     :param env: gym environment that generates trajectories
     :param policy: behavior policy
     :type policy: PPO2
-    :param num: number of trajectories to collect
-    :type num: int
     :return: List of trajectories, which are lists of (s,a) tuples
     :rtype: list
     """

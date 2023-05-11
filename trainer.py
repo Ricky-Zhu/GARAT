@@ -80,7 +80,6 @@ def evaluate_policy_on_env(env,
                            deterministic=True,
                            save_the_optim_traj_states=False
                            ):
-    # model.set_env(env)
     return_list = []
     state_visit = []
     for i in range(iters):
@@ -95,10 +94,8 @@ def evaluate_policy_on_env(env,
             return_val += rewards
             if render:
                 env.render()
-                # time.sleep(0.01)
-
-        if not i % 15: print('Iteration ', i, ' done.')
         return_list.append(return_val)
+
     # sample 2000 data points to represent state visitation
     if save_the_optim_traj_states:
         state_visit_to_save = random.sample(state_visit, k=2000)
@@ -118,7 +115,7 @@ def main():
                         default='data/models/TRPO_initial_policy_steps_HalfCheetah-v2_2500000_.pkl',
                         help="relative path of initial policy trained in sim")
     parser.add_argument('--alpha', default=1.0, type=float, help="Deprecated feature. Ignore")
-    parser.add_argument('--beta', default=1.0, type=float, help="Deprecated feature. Ignore")
+    parser.add_argument('--beta', default=1.0, type=float, help="the reward scale set in ATP env")
     parser.add_argument('--n_trainsteps_target_policy', default=1000, type=int,
                         help="Number of time steps to train the agent policy in the grounded environment")
     parser.add_argument('--n_trainsteps_action_tf_policy', default=1000000, type=int,
@@ -140,7 +137,6 @@ def main():
     parser.add_argument('--sim_trajs', default=100, type=int, help="Set max amount of sim TRAJECTORIES used")
     parser.add_argument('--real_trans', default=50, type=int, help="amount of real world transitions used")
     parser.add_argument('--gsim_trans', default=50, type=int, help="amount of simulator transitions used")
-    parser.add_argument('--debug', action='store_true', help="DEPRECATED")
     parser.add_argument('--eval', action='store_true',
                         help="set to true to evaluate the agent policy in the real environment, after training in grounded environment")
     parser.add_argument('--use_cuda', action='store_true', help="DEPRECATED. Not using CUDA")
@@ -156,11 +152,8 @@ def main():
     parser.add_argument('--tensorboard', action='store_true', help="visualize training in tensorboard")
     parser.add_argument('--save_atp', action='store_true', help="Saves the action transformer policy")
     parser.add_argument('--save_target_policy', action='store_true', help="saves the agent policy")
-    parser.add_argument('--debug_discriminator', action='store_true', help="UNUSED")
-    parser.add_argument('--use_eval_callback', action='store_true', help="UNUSED")
     parser.add_argument('--loss_function', default="GAIL", type=str,
                         help="choose from the list: ['GAIL', 'WGAN', 'AIRL', 'FAIRL']")
-    parser.add_argument('--reset_disc_only', action='store_true', help="UNUSED")
     parser.add_argument('--namespace', default="wed_night", type=str, help="namespace for the experiments")
     parser.add_argument('--dont_reset', action='store_true', help="UNUSED")
     parser.add_argument('--reset_target_policy', action='store_true', help="UNUSED")
@@ -181,6 +174,8 @@ def main():
     parser.add_argument('--deterministic', default=0, type=int,
                         help="set to 0 to use the deterministic action transformer policy in the grounded environment")
     parser.add_argument('--single_batch_size', default=256, type=int, help="batch size for the GARAT update")
+    parser.add_argument('--deterministic_sample_collecting', action='store_true',
+                        help="deterministically collect samples")
 
     args = parser.parse_args()
 
@@ -192,12 +187,8 @@ def main():
     # make dummy gym environment
     dummy_env = gym.make(args.real_env)
 
-    if args.dont_reset is True and args.reset_disc_only is True:
-        raise ValueError('Cannot have both args dont_reset and reset_disc_only. Choose one.')
-
-    expt_type = 'sim2sim' if args.sim_env == args.real_env else 'sim2real'
     current_date = datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
-    expt_label = args.namespace + '_' + str(args.real_env) + '_' + str(args.sim_env) + '-' + current_date
+    expt_label = args.namespace + '_real_' + str(args.real_env) + '_sim_' + str(args.sim_env) + '-' + current_date
     # create the experiment folder
     expt_path = 'data/models/garat/' + expt_label
     expt_already_running = False
@@ -211,16 +202,16 @@ def main():
         frames=args.n_frames,
         algo=args.target_policy_algo,  # agent policy: trpo
         atp_algo=args.action_tf_policy_algo,  # action transformer policy: ppo
-        debug=args.debug,
-        real_trajs=args.real_trajs,  # not used
-        sim_trajs=args.sim_trajs,  # not used
         use_cuda=args.use_cuda,
         real_trans=args.real_trans,  # the collected transition limit once
         gsim_trans=args.gsim_trans,
         expt_path=expt_path,
         tensorboard=args.tensorboard,
         atp_loss_function=args.loss_function,  # here GAIL is used
-        single_batch_size=None if args.single_batch_size == 0 else args.single_batch_size,
+        single_batch_size=None if args.single_batch_size == 0 else args.single_batch_size,  # TODO: check this usage
+        deterministic_sample_collecting=args.deterministic_sample_collecting,
+        beta=args.beta
+
     )
 
     # first see the performance descrepency of load policy in the source env and the target env
@@ -238,52 +229,20 @@ def main():
     cprint('the initial agent policy performance {} on source env, {} on target env'.format(val_first_sim,
                                                                                             val_first_target), 'green')
 
-    # checkpointing logic ~~ necessary when deploying script on Condor cluster
-    if os.path.exists(expt_path):
-        print('~~ Resuming from checkpoint ~~')
+    print('running experiment')
+    os.makedirs(expt_path)
+    grounding_step = 0
 
-        # remove the best_model.zip file if it exists
-        if os.path.exists(expt_path + '/best_model.zip'):
-            os.remove(expt_path + '/best_model.zip')
+    try:  # save the argments TODO: change to args save instead of command line save
+        with open(expt_path + '/commandline_args.txt', 'w') as f:
+            f.write('\n'.join(sys.argv[1:]))
 
-        expt_already_running = True
-        grounding_step = len(glob.glob(expt_path + '/*.pkl'))
-        print('found ', grounding_step, ' target policies in disk')
-        if grounding_step == args.n_grounding_steps:  # training has ended
-            raise ValueError('Rerunning same experiment again ! Exiting')
-        else:
-            if grounding_step > 0:
-                print('reloading weights of the target policy')
-                gatworld.load_model(expt_path + '/target_policy_' + str(grounding_step - 1) + '.pkl')
-    else:
-        print('First time running experiment')
-        os.makedirs(expt_path)
-        grounding_step = 0
+    except:
+        pass
 
-        try:  # save the argments
-            with open(expt_path + '/commandline_args.txt', 'w') as f:
-                f.write('\n'.join(sys.argv[1:]))
+    start_grounding_step = grounding_step
 
-        except:
-            pass
-
-    start_grouding_step = grounding_step
-
-    # # the reset disc and dont reset actually is not used
-    # if args.reset_disc_only or args.dont_reset:
-    #     cprint('~~ INITIALIZING DISCRIMINATOR AND ATP POLICY ~~', 'yellow')
-    #     gatworld._init_rgat_models(algo=args.action_tf_policy_algo,
-    #                                ent_coeff=args.ent_coeff,
-    #                                max_kl=args.max_kl,
-    #                                clip_range=args.clip_range,
-    #                                atp_loss_function=args.loss_function,
-    #                                disc_lr=args.disc_lr,
-    #                                atp_lr=args.atp_lr,
-    #                                nminibatches=args.nminibatches,
-    #                                noptepochs=args.noptepochs,
-    #                                )
-
-    for _ in range(args.n_grounding_steps - start_grouding_step):
+    for _ in range(args.n_grounding_steps - start_grounding_step):
 
         grounding_step += 1
         cprint('grounding step {}/{}'.format(grounding_step, args.n_grounding_steps), 'blue')
@@ -311,14 +270,12 @@ def main():
                 gatworld.train_discriminator(iter_step=ii,
                                              grounding_step=grounding_step,
                                              num_epochs=args.noptepochs * 5 if ii <= 10 else args.noptepochs,  # warmup
-                                             inject_instance_noise=args.instance_noise,
                                              compute_grad_penalty=args.compute_grad_penalty,
                                              nminibatches=args.nminibatches,
                                              single_batch_test=args.single_batch_test,
-                                             debug_discriminator=args.debug_discriminator,
                                              )
 
-            gatworld.train_action_transformer_policy(beta=args.beta,
+            gatworld.train_action_transformer_policy(
                                                      num_epochs=args.generator_epochs,
                                                      loss_function=args.loss_function,
                                                      single_batch_test=args.single_batch_test,
