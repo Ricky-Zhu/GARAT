@@ -23,7 +23,7 @@ python ../trainer.py \
   --eval \
   --disc_lr 3e-3 \
   --atp_lr 3e-4 \
-  --nminibatches 32 \
+  --nminibatches 2 \
   --noptepochs 10 \
   --compute_grad_penalty \
   --namespace "garat_walker" \

@@ -190,7 +190,7 @@ def main():
     current_date = datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
     expt_label = args.namespace + '_real_' + str(args.real_env) + '_sim_' + str(args.sim_env) + '-' + current_date
     # create the experiment folder
-    expt_path = 'data/models/garat/' + expt_label
+    expt_path = '../data/models/garat/' + expt_label
     expt_already_running = False
 
     gatworld = ReinforcedGAT(
@@ -298,7 +298,6 @@ def main():
         gatworld.train_target_policy_in_grounded_env(grounding_step=grounding_step,
                                                      alpha=args.alpha,
                                                      time_steps=args.n_trainsteps_target_policy,
-                                                     use_eval_callback=args.use_eval_callback,
                                                      save_model=args.save_target_policy,
                                                      use_deterministic=True if args.deterministic == 1 else False,
                                                      )
