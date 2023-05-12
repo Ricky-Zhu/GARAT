@@ -1082,7 +1082,7 @@ class ReinforcedGAT:
         """
 
         X_list = []  # previous states + action + next state
-        Y_list = []  # label for the trajectory : real:[1] / fake:[0]
+        Y_list = []  # label for the transition : real:[1] / fake:[0]
 
         ######### COLLECT REAL TRAJECTORIES ###################
         # load the collected real trajectories
