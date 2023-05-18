@@ -1,5 +1,6 @@
 # Filter tensorflow version warnings
 import os
+import json
 
 # https://stackoverflow.com/questions/40426502/is-there-a-way-to-suppress-the-messages-tensorflow-prints/40426709
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
@@ -114,11 +115,10 @@ def main():
     parser.add_argument('--load_policy_path',
                         default='data/models/TRPO_initial_policy_steps_HalfCheetah-v2_2500000_.pkl',
                         help="relative path of initial policy trained in sim")
-    parser.add_argument('--alpha', default=1.0, type=float, help="Deprecated feature. Ignore")
     parser.add_argument('--beta', default=1.0, type=float, help="the reward scale set in ATP env")
-    parser.add_argument('--n_trainsteps_target_policy', default=1000, type=int,
+    parser.add_argument('--n_trainsteps_target_policy', default=10000, type=int,
                         help="Number of time steps to train the agent policy in the grounded environment")
-    parser.add_argument('--n_trainsteps_action_tf_policy', default=1000000, type=int,
+    parser.add_argument('--n_trainsteps_action_tf_policy', default=10000, type=int,
                         help="Timesteps to train the Action Transformer policy in the ATPEnvironment")
     parser.add_argument('--num_cores', default=10, type=int,
                         help="Number of threads to use while collecting real world experience")
@@ -133,13 +133,10 @@ def main():
     parser.add_argument('--n_iters_atp', default=1, type=int, help="Number of GAN iterations")
     parser.add_argument('--discriminator_epochs', default=1, type=int, help="Discriminator epochs per GAN iteration")
     parser.add_argument('--generator_epochs', default=50, type=int, help="ATP epochs per GAN iteration")
-    parser.add_argument('--real_trajs', default=100, type=int, help="Set max amount of real TRAJECTORIES used")
-    parser.add_argument('--sim_trajs', default=100, type=int, help="Set max amount of sim TRAJECTORIES used")
     parser.add_argument('--real_trans', default=50, type=int, help="amount of real world transitions used")
     parser.add_argument('--gsim_trans', default=50, type=int, help="amount of simulator transitions used")
     parser.add_argument('--eval', action='store_true',
                         help="set to true to evaluate the agent policy in the real environment, after training in grounded environment")
-    parser.add_argument('--use_cuda', action='store_true', help="DEPRECATED. Not using CUDA")
     parser.add_argument('--instance_noise', action='store_true', help="DEPRECATED. Not using instance noise")
     parser.add_argument('--ent_coeff', default=0.00005, type=float,
                         help="entropy coefficient for the PPO algorithm, used to train the action transformer policy")
@@ -154,7 +151,7 @@ def main():
     parser.add_argument('--save_target_policy', action='store_true', help="saves the agent policy")
     parser.add_argument('--loss_function', default="GAIL", type=str,
                         help="choose from the list: ['GAIL', 'WGAN', 'AIRL', 'FAIRL']")
-    parser.add_argument('--namespace', default="wed_night", type=str, help="namespace for the experiments")
+    parser.add_argument('--namespace', default="test", type=str, help="namespace for the experiments")
     parser.add_argument('--dont_reset', action='store_true', help="UNUSED")
     parser.add_argument('--reset_target_policy', action='store_true', help="UNUSED")
     parser.add_argument('--randomize_target_policy', action='store_true', help="UNUSED")
@@ -174,6 +171,8 @@ def main():
     parser.add_argument('--deterministic', default=0, type=int,
                         help="set to 0 to use the deterministic action transformer policy in the grounded environment")
     parser.add_argument('--single_batch_size', default=256, type=int, help="batch size for the GARAT update")
+    parser.add_argument('--eval_iter', default=1, type=int,
+                        help="evaluation iterations of the policy on sim and real envs")
     parser.add_argument('--deterministic_sample_collecting', action='store_true',
                         help="deterministically collect samples")
 
@@ -190,8 +189,15 @@ def main():
     current_date = datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
     expt_label = args.namespace + '_real_' + str(args.real_env) + '_sim_' + str(args.sim_env) + '-' + current_date
     # create the experiment folder
-    expt_path = '../data/models/garat/' + expt_label
-    expt_already_running = False
+    expt_path = './data/models/garat/' + expt_label
+    if not os.path.exists(expt_path):
+        os.makedirs(expt_path)
+
+    # save the hyper-parameters
+    with open(expt_path + "/parameters.json", 'w') as json_file:
+        json.dump(vars(args), json_file, indent=4)
+    # create the log file to save the output of print
+    log_path = expt_path + '/output.txt'
 
     gatworld = ReinforcedGAT(
         load_policy=args.load_policy_path,  # the path of the pretrained policy in the source env
@@ -202,7 +208,6 @@ def main():
         frames=args.n_frames,
         algo=args.target_policy_algo,  # agent policy: trpo
         atp_algo=args.action_tf_policy_algo,  # action transformer policy: ppo
-        use_cuda=args.use_cuda,
         real_trans=args.real_trans,  # the collected transition limit once
         gsim_trans=args.gsim_trans,
         expt_path=expt_path,
@@ -210,35 +215,36 @@ def main():
         atp_loss_function=args.loss_function,  # here GAIL is used
         single_batch_size=None if args.single_batch_size == 0 else args.single_batch_size,  # TODO: check this usage
         deterministic_sample_collecting=args.deterministic_sample_collecting,
-        beta=args.beta
+        beta=args.beta,
+        seed=args.expt_number
 
     )
 
     # first see the performance descrepency of load policy in the source env and the target env
     cprint('first check if there are performance descrepency', 'red', 'on_green')
-    val_first_sim = evaluate_policy_on_env(gym.make(args.sim_env),
+    evaluation_sim_env = gym.make(args.sim_env)
+    evaluation_sim_env.seed(args.expt_number)
+    evaluation_real_env = gym.make(args.real_env)
+    evaluation_real_env.seed(args.expt_number)
+
+    val_first_sim = evaluate_policy_on_env(evaluation_sim_env,
                                            gatworld.target_policy,
                                            render=False,
-                                           iters=20,
+                                           iters=args.eval_iter,
                                            deterministic=True)
-    val_first_target = evaluate_policy_on_env(gym.make(args.real_env),
+    val_first_target = evaluate_policy_on_env(evaluation_real_env,
                                               gatworld.target_policy,
                                               render=False,
-                                              iters=20,
+                                              iters=args.eval_iter,
                                               deterministic=True)
-    cprint('the initial agent policy performance {} on source env, {} on target env'.format(val_first_sim,
-                                                                                            val_first_target), 'green')
+    to_print = 'the initial agent policy performance {} on source env, {} on target env'.format(val_first_sim,
+                                                                                                val_first_target)
+    cprint(to_print, 'green')
+    with open(log_path, 'a') as text_file:
+        text_file.write(to_print + '\n')
 
     print('running experiment')
-    os.makedirs(expt_path)
     grounding_step = 0
-
-    try:  # save the argments TODO: change to args save instead of command line save
-        with open(expt_path + '/commandline_args.txt', 'w') as f:
-            f.write('\n'.join(sys.argv[1:]))
-
-    except:
-        pass
 
     start_grounding_step = grounding_step
 
@@ -276,10 +282,10 @@ def main():
                                              )
 
             gatworld.train_action_transformer_policy(
-                                                     num_epochs=args.generator_epochs,
-                                                     loss_function=args.loss_function,
-                                                     single_batch_test=args.single_batch_test,
-                                                     )
+                time_steps=args.n_trainsteps_action_tf_policy,
+                loss_function=args.loss_function,
+                single_batch_test=args.single_batch_test,
+            )
 
             # test grounded environment
             if args.plot and dummy_env.action_space.shape[0] < 5:
@@ -296,17 +302,19 @@ def main():
                 gatworld.save_atp(grounding_step=str(grounding_step) + '_' + str(ii))
 
         gatworld.train_target_policy_in_grounded_env(grounding_step=grounding_step,
-                                                     alpha=args.alpha,
+                                                     alpha=1.0,
                                                      time_steps=args.n_trainsteps_target_policy,
                                                      save_model=args.save_target_policy,
                                                      use_deterministic=True if args.deterministic == 1 else False,
                                                      )
 
-        if args.eval:
+        if True:
             cprint('Evaluating target policy in environment for grounding step {}'.format(grounding_step), 'red',
                    'on_blue')
             test_env = gym.make(args.real_env)
+            test_env.seed(args.expt_number + 1)
             test_sim_env = gym.make(args.sim_env)
+            test_sim_env.seed(args.expt_number + 1)
             if 'mujoco_norm' in args.load_policy_path:
                 test_env = MujocoNormalized(test_env)
             elif 'normalized' in args.load_policy_path:
@@ -318,7 +326,7 @@ def main():
                 val_sim = evaluate_policy_on_env(test_sim_env,
                                                  gatworld.target_policy,
                                                  render=False,
-                                                 iters=20,
+                                                 iters=args.eval_iter,
                                                  deterministic=True)
 
                 # evaluate the target agent policy in the target env determinsticly and stochasticly
@@ -326,7 +334,7 @@ def main():
                 *val_det, state_to_save = evaluate_policy_on_env(test_env,
                                                                  gatworld.target_policy,
                                                                  render=False,
-                                                                 iters=20,
+                                                                 iters=args.eval_iter,
                                                                  deterministic=True,
                                                                  save_the_optim_traj_states=True)
 
@@ -337,13 +345,16 @@ def main():
                 val_stochastic = evaluate_policy_on_env(test_env,
                                                         gatworld.target_policy,
                                                         render=False,
-                                                        iters=20,
+                                                        iters=args.eval_iter,
                                                         deterministic=False)
-                print(
-                    'grounding step : {}, sim_env_det:{},real_env_det:{},real_env_stochastic:{}'.format(grounding_step,
-                                                                                                        val_sim,
-                                                                                                        val_det,
-                                                                                                        val_stochastic))
+                to_print = 'grounding step : {}, sim_env_det:{},real_env_det:{},real_env_stochastic:{}'.format(
+                    grounding_step,
+                    val_sim,
+                    val_det,
+                    val_stochastic)
+                print(to_print)
+                with open(log_path, 'a') as text_file:
+                    text_file.write(to_print + '\n')
                 # with open(expt_path + "/stochastic_output.txt", "a") as txt_file:
                 #     print(val, file=txt_file)
             except Exception as e:

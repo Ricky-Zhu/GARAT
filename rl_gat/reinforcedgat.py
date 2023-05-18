@@ -22,6 +22,7 @@ from termcolor import cprint
 import random
 from gym import spaces
 import torch
+from functools import partial
 
 torch.backends.cudnn.deterministic = True
 import torch.nn as nn
@@ -525,7 +526,7 @@ class ReinforcedGAT:
                  num_rl_threads=NUM_RL_THREADS,
                  load_policy=None,
                  algo="TRPO",
-                 atp_algo="TRPO",
+                 atp_algo="PPO2",
                  use_cuda=False,
                  real_trans=50000,
                  gsim_trans=50000,
@@ -534,6 +535,7 @@ class ReinforcedGAT:
                  atp_loss_function='GAIL',
                  single_batch_size=None,
                  deterministic_sample_collecting=False,
+                 seed=1
                  ):
 
         self.single_batch_size = single_batch_size
@@ -559,25 +561,22 @@ class ReinforcedGAT:
         self.num_rl_threads = num_rl_threads
         self.deterministic_sample_collecting = deterministic_sample_collecting
         self.beta = beta
+        self.seed = seed
 
         # using custom mujoco normalization scheme
         # which in the experiment is not used
         self.mujoco_norm = False
-        if 'mujoco_norm' in load_policy: self.mujoco_norm = True
 
-        env = gym.make(self.real_env_name)
-        if self.mujoco_norm: env = MujocoNormalized(env)
-        self.real_env = DummyVecEnv([lambda: env])
+        self.real_env = DummyVecEnv([partial(self.make_env, env_name=self.real_env_name, seed=seed)])
+        self.real_env.seed(seed)
 
-        env = gym.make(self.env_name)
-        if self.mujoco_norm: env = MujocoNormalized(env)
-        self.sim_env = DummyVecEnv([lambda: env])
+        self.sim_env = DummyVecEnv([partial(self.make_env, env_name=self.env_name, seed=seed)])
+        self.sim_env.seed(seed)
 
         # initialize target policy
         self.load_policy = load_policy
         self.algo = algo
-        self.saved_env = env
-        self._init_target_policy(load_policy, algo, env, tensorboard)
+        self._init_target_policy(load_policy, algo, tensorboard)
 
         # define the Grounded Action Transformer models here
         self.grounded_sim_env = None
@@ -587,21 +586,44 @@ class ReinforcedGAT:
         self.data_y_list = []
 
         self.real_X_list, self.real_Y_list = [], []
-        self.fwd_X_list, self.fwd_Y_list = [], []
 
-    def _randomize_target_policy(self, algo, env=None):
+    def make_env(self, env_name, seed):
+        env = gym.make(env_name)
+        env.seed(seed)
+        return env
 
-        cprint('### ~~~ RESETTING TARGET POLICY ~~~ ###', 'red', 'on_blue')
-
-        with open('data/target_policy_params.yaml') as file:
+    def _init_target_policy(self, load_policy, algo, tensorboard=False):
+        print('LOADING -PRETRAINED- INITIAL POLICY')
+        with open('./data/target_policy_params.yaml') as file:
             args = yaml.load(file, Loader=yaml.FullLoader)
 
-        if algo == "PPO2":
-            cprint('Using PPO2 as the Target Policy Algo', 'yellow')
+        if 'normalize' in load_policy:
+            self._init_normalization_stats()
+        else:
+            self.target_policy_norm_obs = None
+
+        if algo == "SAC":
+            args = args['SAC'][self.env_name]
+            self.target_policy = SAC.load(
+                load_policy,
+                # env=DummyVecEnv([lambda: env]),
+                # tensorboard_log='data/TBlogs/'+self.env_name,
+                verbose=1,
+                batch_size=args['batch_size'],
+                buffer_size=args['buffer_size'],
+                ent_coef=args['ent_coef'],
+                learning_rate=args['learning_rate'],
+                learning_starts=args['learning_starts'],
+            )
+
+        elif algo == "PPO2":
             args = args['PPO2'][self.env_name]
-            self.target_policy = PPO2(
-                OtherMlpPolicy,
-                env=DummyVecEnv([lambda: gym.make(self.env_name)]),
+
+            self.target_policy = PPO2.load(
+                load_policy,
+                # env=DummyVecEnv([lambda: env]),
+                # disabled tensorboard temporarily
+                # tensorboard_log='TBlogs/'+self.env_name,
                 verbose=1,
                 n_steps=args['n_steps'],
                 nminibatches=args['nminibatches'],
@@ -611,15 +633,40 @@ class ReinforcedGAT:
                 ent_coef=args['ent_coef'],
                 learning_rate=args['learning_rate'],
                 cliprange=args['cliprange'],
+                seed=self.seed
             )
+        elif algo == "TD3":
+            args = args['TD3'][self.env_name]
 
+            n_actions = self.sim_env.action_space.shape[-1]
+            action_noise = NormalActionNoise(mean=np.zeros(n_actions),
+                                             sigma=0.1 * np.ones(n_actions))
+            self.target_policy = TD3.load(
+                load_policy,
+                # env=DummyVecEnv([lambda: env]),
+                # tensorboard_log='data/TBlogs/'+self.env_name,
+                verbose=0,
+                batch_size=args['batch_size'],
+                buffer_size=args['buffer_size'],
+                gamma=args['gamma'],
+                gradient_steps=args['gradient_steps'],
+                learning_rate=args['learning_rate'],
+                learning_starts=args['learning_starts'],
+                action_noise=action_noise,
+                train_freq=args['train_freq'],
+                seed=self.seed
+            )
         elif algo == "TRPO":
-            cprint('Using TRPO as the Target Policy Algo', 'yellow')
+            print('Using TRPO as the Target Policy Algo')
+
             args = args['TRPO'][self.env_name]
-            self.target_policy = TRPO(
-                OtherMlpPolicy,
-                env=DummyVecEnv([lambda: gym.make(self.env_name)]),
-                verbose=1,
+
+            self.target_policy = TRPO.load(
+                load_policy,
+                # env=DummyVecEnv([lambda:env]),
+                verbose=0,
+                # disabled tensorboard temporarily
+                tensorboard_log='data/TBlogs/' + self.env_name if tensorboard else None,
                 timesteps_per_batch=args['timesteps_per_batch'],
                 lam=args['lam'],
                 max_kl=args['max_kl'],
@@ -628,124 +675,12 @@ class ReinforcedGAT:
                 vf_stepsize=args['vf_stepsize'],
                 entcoeff=args['entcoeff'],
                 cg_damping=args['cg_damping'],
-                cg_iters=args['cg_iters']
+                cg_iters=args['cg_iters'],
+                seed=self.seed
             )
 
-    def _init_target_policy(self, load_policy, algo, env=None, tensorboard=False):
-
-        if env is None: env = self.saved_env
-
-        if load_policy is None:
-            print('LOADING -RANDOM- INITIAL POLICY')
-            if algo == "PPO2":
-                self.target_policy = PPO2(
-                    OtherMlpPolicy,
-                    # env=DummyVecEnv([lambda : gym.make(self.env_name)]),
-                    verbose=1,
-                    # tensorboard_log='data/TBlogs/' + self.env_name,
-                )
-            elif algo == "TD3":
-                n_actions = self.sim_env.action_space.shape[-1]
-                action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
-                self.target_policy = TD3(
-                    MlpPolicy,
-                    env=DummyVecEnv([lambda: gym.make(self.env_name)]),
-                    # tensorboard_log='data/TBlogs/' + self.env_name,
-                    verbose=1,
-                    batch_size=128,
-                    gamma=0.99,
-                    learning_rate=0.001,
-                    action_noise=action_noise,
-                    buffer_size=1000000
-                )
-            else:
-                raise NotImplementedError("Algo " + algo + " not supported")
         else:
-            print('LOADING -PRETRAINED- INITIAL POLICY')
-            with open('../data/target_policy_params.yaml') as file:
-                args = yaml.load(file, Loader=yaml.FullLoader)
-
-            if 'normalize' in load_policy:
-                self._init_normalization_stats()
-            else:
-                self.target_policy_norm_obs = None
-
-            if algo == "SAC":
-                args = args['SAC'][self.env_name]
-                self.target_policy = SAC.load(
-                    load_policy,
-                    # env=DummyVecEnv([lambda: env]),
-                    # tensorboard_log='data/TBlogs/'+self.env_name,
-                    verbose=1,
-                    batch_size=args['batch_size'],
-                    buffer_size=args['buffer_size'],
-                    ent_coef=args['ent_coef'],
-                    learning_rate=args['learning_rate'],
-                    learning_starts=args['learning_starts'],
-                )
-
-            elif algo == "PPO2":
-                args = args['PPO2'][self.env_name]
-
-                self.target_policy = PPO2.load(
-                    load_policy,
-                    # env=DummyVecEnv([lambda: env]),
-                    # disabled tensorboard temporarily
-                    # tensorboard_log='TBlogs/'+self.env_name,
-                    verbose=1,
-                    n_steps=args['n_steps'],
-                    nminibatches=args['nminibatches'],
-                    lam=args['lam'],
-                    gamma=args['gamma'],
-                    noptepochs=args['noptepochs'],
-                    ent_coef=args['ent_coef'],
-                    learning_rate=args['learning_rate'],
-                    cliprange=args['cliprange'],
-                )
-            elif algo == "TD3":
-                args = args['TD3'][self.env_name]
-
-                n_actions = self.sim_env.action_space.shape[-1]
-                action_noise = NormalActionNoise(mean=np.zeros(n_actions),
-                                                 sigma=0.1 * np.ones(n_actions))
-                self.target_policy = TD3.load(
-                    load_policy,
-                    # env=DummyVecEnv([lambda: env]),
-                    # tensorboard_log='data/TBlogs/'+self.env_name,
-                    verbose=0,
-                    batch_size=args['batch_size'],
-                    buffer_size=args['buffer_size'],
-                    gamma=args['gamma'],
-                    gradient_steps=args['gradient_steps'],
-                    learning_rate=args['learning_rate'],
-                    learning_starts=args['learning_starts'],
-                    action_noise=action_noise,
-                    train_freq=args['train_freq'],
-                )
-            elif algo == "TRPO":
-                print('Using TRPO as the Target Policy Algo')
-
-                args = args['TRPO'][self.env_name]
-
-                self.target_policy = TRPO.load(
-                    load_policy,
-                    # env=DummyVecEnv([lambda:env]),
-                    verbose=0,
-                    # disabled tensorboard temporarily
-                    tensorboard_log='data/TBlogs/' + self.env_name if tensorboard else None,
-                    timesteps_per_batch=args['timesteps_per_batch'],
-                    lam=args['lam'],
-                    max_kl=args['max_kl'],
-                    gamma=args['gamma'],
-                    vf_iters=args['vf_iters'],
-                    vf_stepsize=args['vf_stepsize'],
-                    entcoeff=args['entcoeff'],
-                    cg_damping=args['cg_damping'],
-                    cg_iters=args['cg_iters']
-                )
-
-            else:
-                raise NotImplementedError("Algo " + algo + " not supported yet")
+            raise NotImplementedError("Algo " + algo + " not supported yet")
 
     def _init_normalization_stats(self, training=False):
         print('Using a policy trained in normalized environment.. Loading normalizer')
@@ -817,7 +752,7 @@ class ReinforcedGAT:
 
         ########### CREATE ACTION TRANSFORMER POLICY ##########
         env = gym.make(self.env_name)
-        if self.mujoco_norm: env = MujocoNormalized(env)
+        env.seed(self.seed)
 
         self.atp_environment = ATPEnv(env=env,
                                       target_policy=self.target_policy,
@@ -851,6 +786,7 @@ class ReinforcedGAT:
                 learning_rate=0.0003,
                 action_noise=action_noise,
                 learning_starts=50,
+                seed=self.seed
             )
         elif algo == "TRPO":
             self.action_tf_policy = TRPO(
@@ -866,7 +802,8 @@ class ReinforcedGAT:
                 vf_stepsize=atp_lr,
                 entcoeff=ent_coeff,
                 cg_damping=0.01,
-                cg_iters=1
+                cg_iters=1,
+                seed=self.seed
             )
         elif algo == "PPO2":
             self.action_tf_policy = PPO2(
@@ -879,6 +816,7 @@ class ReinforcedGAT:
                 lam=0.95,
                 cliprange=clip_range,
                 learning_rate=atp_lr,
+                seed=self.seed
             )
 
         elif algo == "SAC":
@@ -889,7 +827,8 @@ class ReinforcedGAT:
                 # tensorboard_log='data/TBlogs/action_transformer_policy',
                 verbose=0,
                 batch_size=1024,
-                buffer_size=1000000)
+                buffer_size=1000000,
+                seed=self.seed)
         else:
             raise NotImplementedError("Algo " + algo + " not supported")
 
@@ -906,6 +845,7 @@ class ReinforcedGAT:
             print('USING STOCHASTIC ATP')
 
         env = gym.make(self.env_name)
+        env.seed(self.seed)
         if self.mujoco_norm: env = MujocoNormalized(env)
 
         if 'Ant' in self.env_name: use_deterministic = True
@@ -992,8 +932,6 @@ class ReinforcedGAT:
                                         single_batch_test=False,
                                         ):
 
-        if num_epochs is not None:
-            time_steps = self.gsim_trans * num_epochs
         # print('TRAINING ACTION TRANSFORMER POLICY FOR ', time_steps, ' TIMESTEPS')
 
         # refresh the discriminator in the ATP Env as the discriminator been trained
@@ -1111,6 +1049,7 @@ class ReinforcedGAT:
             env = gym.make(self.env_name)
             if self.mujoco_norm: env = MujocoNormalized(env)
 
+        env.seed(self.seed)
         grnd_env = GroundedEnv(env=env,
                                action_tf_policy=self.action_tf_policy,
                                # action_tf_env=self.atp_environment,
