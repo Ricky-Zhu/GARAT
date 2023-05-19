@@ -61,29 +61,6 @@ def create_model_name(env_name,
     return model_name
 
 
-#
-# # Separate evaluation env
-# if SAVE_BEST_FOR_20:
-#     eval_env = DummyVecEnv([lambda: gym.make(ENV_NAME)])
-#
-#     eval_callback = EvalCallback(eval_env,
-#                                  best_model_save_path=model_name[:-4],
-#                                  n_eval_episodes=30,
-#                                  eval_freq=5000,
-#                                  deterministic=True,
-#                                  render=False,
-#                                  verbose=1)
-#
-#
-#     def save_the_model():
-#         shutil.move(model_name[:-4] + '/best_model.zip', model_name)
-#         try:
-#             os.rmdir(model_name[:-4])
-#             print('Successfully saved the model.')
-#         except Exception as e:
-#             print(e)
-
-
 def evaluate_policy_on_env(env,
                            model,
                            render=True,

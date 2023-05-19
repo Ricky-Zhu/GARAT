@@ -168,8 +168,8 @@ def main():
                         help="Number of minibatches used by the PPO algorithm to update the action transformer policy")
     parser.add_argument('--noptepochs', default=4, type=int,
                         help="Number of optimization epochs performed per minibatch by the PPO algorithm to update the action transformer policy")
-    parser.add_argument('--deterministic', default=0, type=int,
-                        help="set to 0 to use the deterministic action transformer policy in the grounded environment")
+    parser.add_argument('--deterministic', default=1, type=int,
+                        help="set to 1 to use the deterministic action transformer policy in the grounded environment")
     parser.add_argument('--single_batch_size', default=256, type=int, help="batch size for the GARAT update")
     parser.add_argument('--eval_iter', default=1, type=int,
                         help="evaluation iterations of the policy on sim and real envs")
@@ -308,7 +308,7 @@ def main():
                                                      use_deterministic=True if args.deterministic == 1 else False,
                                                      )
 
-        if True:
+        if args.eval:
             cprint('Evaluating target policy in environment for grounding step {}'.format(grounding_step), 'red',
                    'on_blue')
             test_env = gym.make(args.real_env)

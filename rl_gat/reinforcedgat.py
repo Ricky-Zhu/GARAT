@@ -227,6 +227,7 @@ class ATPEnv(gym.Wrapper):
         if self.data_collection_mode: self.T.append((self.latest_obs, self.latest_act))
 
         # input action is the delta transformed action for this Environment
+        # TODO whether need to change to (1-delta)*action + delta*self.latest_act
         transformed_action = action + self.latest_act
         transformed_action = np.clip(transformed_action, -self.env_max_act, self.env_max_act)
 
